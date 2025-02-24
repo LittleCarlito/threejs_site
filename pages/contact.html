@@ -77,20 +77,10 @@
     <div class="message right_message">steven.meier77@gmail.com</div>
     <div class="message right_message">"Blooooork" on Discord</div>
     <script type="module">
-        import { FLAGS } from '../../common';
         const messages = document.querySelectorAll('.message');
         const typingIndicator = document.querySelector('.typing-indicator');
-        if(FLAGS.HTML_LOGS){
-            console.log('Page Load - localStorage state:', localStorage.getItem('contact_has_played'));
-        }
         window.trigger_frame_animation = function() {
-            if(FLAGS.HTML_LOGS){
-                console.log('Animation triggered - localStorage state:', localStorage.getItem('contact_has_played'));
-            }
             if(!localStorage.getItem('contact_has_played')){
-                if(FLAGS.HTML_LOGS){
-                    console.log('First time - playing animation');
-                }
                 messages[0].classList.add('show');
                 
                 setTimeout(() => {
@@ -111,9 +101,6 @@
                 
                 localStorage.setItem('contact_has_played', true);
             } else {
-                if(FLAGS.HTML_LOGS){
-                    console.log('Already played - showing text');
-                }
                 messages.forEach(message => {
                     message.classList.add('show');
                 });

@@ -141,9 +141,8 @@
     </div>
 
     <script type="module">
-        import { FLAGS } from '../../common';
-
         // Configuration constants
+        const VISUAL_DEBUG = false;
         const ORIGINAL_SVG_WIDTH = 800;
         const LINK_LEFT_MARGIN = 60;
         const BASE_Y = 180;
@@ -222,14 +221,10 @@
         let tape, interceptor;
 
         opentype.load('/fonts/TokyoRockstar.ttf', function(err, loadedFont) {
-            if (err && FLAGS.HTML_LOGS) {
-                console.error('Font could not be loaded:', err);
+            if (err) {
                 return;
             }
             font = loadedFont;
-            if(FLAGS.HTML_LOGS) {
-                console.log('Font loaded successfully');
-            }
 
             // Create tape after font is loaded
             tape = document.createElement('div');
@@ -252,10 +247,6 @@
             debugContainer.style.zIndex = '100';
             document.body.appendChild(debugContainer);
 
-            if(FLAGS.HTML_LOGS) {
-                console.log('Debug container created');
-            }
-
             // Y positions, heights, widths, and offsets tuned for each item
             const boxConfigs = [
                 { y: 180, height: 35, width: 285, yOffset: -40, url: 'https://www.youtube.com/@Blooooork' },  // ThreeJS tutorials
@@ -277,22 +268,12 @@
                 link.style.top = `${config.y + config.yOffset}px`;
                 link.style.width = `${config.width}px`;
                 link.style.height = `${config.height}px`;
-                if(FLAGS.VISUAL_DEBUG) {
+                if(VISUAL_DEBUG) {
                     link.style.backgroundColor = `rgba(255, 0, 0, 0.3)`;
                 }
                 link.style.cursor = 'pointer';
                 debugContainer.appendChild(link);
-                
-                if(FLAGS.HTML_LOGS) {
-                    console.log(`Created link ${index + 1} at y=${config.y}`);
-                }
             });
-
-            // Verify container has children
-            if(FLAGS.HTML_LOGS) {
-                console.log('Number of links created:', debugContainer.children.length);
-            }
-
             // After creating the debug container and links, call updateBoxPositions
             updateBoxPositions();
 
@@ -351,30 +332,18 @@
         }
 
         function getPathDataForChar(char, x, y, fontSize) {
-            if(FLAGS.HTML_LOGS) {
-                console.log(`Generating path for char: ${char}, x: ${x}, y: ${y}, fontSize: ${fontSize}`);
-            }
             const path = font.getPath(char, x, y, fontSize);
             return path.toPathData();
         }
 
         function animateCharacter(char, x, y, fontSize) {
             return new Promise((resolve) => {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Generating path for char:', char, 'x:', x, 'y:', y, 'fontSize:', fontSize);
-                }
-                
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 const pathData = getPathDataForChar(char, x, y, fontSize);
                 path.setAttribute('d', pathData);
                 path.setAttribute('class', 'letter-path');
-                
                 const svg = document.querySelector('svg');
                 svg.appendChild(path);
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Starting animation for character:', char);
-                }
-                
                 const pathLength = path.getTotalLength();
                 path.style.strokeDasharray = pathLength;
                 path.style.setProperty('--path-length', pathLength);
@@ -385,9 +354,6 @@
                 });
 
                 path.addEventListener('animationend', () => {
-                    if(FLAGS.HTML_LOGS) {   
-                        console.log('Finished animating:', char);
-                    }
                     setTimeout(resolve, 10);
                 });
             });
@@ -431,9 +397,6 @@
             const charDuration = 10; // Duration per character
             
             for (let charInfo of allCharacters) {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Creating character:', charInfo.char);
-                }
                 const charPath = createCharacterPath(
                     charInfo.char, 
                     charInfo.x, 
@@ -478,14 +441,8 @@
 
         async function animateTitle() {
             const state = localStorage.getItem('animationPlayed');
-            if(FLAGS.HTML_LOGS) {
-                console.log('Animation triggered - localStorage state:', state);
-            }
             
             if (!state) {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('First time - playing animation');
-                }
                 localStorage.setItem('animationPlayed', 'true');
                 
                 // Create array of characters to animate
@@ -502,18 +459,12 @@
 
                 // Animate first row
                 for (let char of chars) {
-                    if(FLAGS.HTML_LOGS) {
-                        console.log('Creating character:', char);
-                    }
                     await animateCharacter(char, xOffset, yPos, fontSize);
                     xOffset += fontSize * 0.768; // Adjust spacing between characters
                 }
 
                 // Animate second row
                 for (let char of chars2) {
-                    if(FLAGS.HTML_LOGS) {
-                        console.log('Creating character:', char);
-                    }
                     await animateCharacter(char, xOffset2, yPos2, fontSize2);
                     xOffset2 += fontSize2 * 0.768; // Adjust spacing between characters
                 }
@@ -521,13 +472,7 @@
         }
 
         window.trigger_frame_animation = function() {
-            if(FLAGS.HTML_LOGS) {
-                console.log("Animation triggered - localStorage state:", localStorage.getItem('projects_has_played'));
-            }
             if(!localStorage.getItem('projects_has_played')) {
-                if(FLAGS.HTML_LOGS) {
-                    console.log("First time - playing animation");
-                }
                 container.classList.add('show');
                 animateAllText();
                 localStorage.setItem('projects_has_played', true);

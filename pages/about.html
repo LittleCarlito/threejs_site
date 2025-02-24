@@ -273,9 +273,7 @@
         </div>
     </div>
 
-    <script type="module">
-        import { FLAGS } from '../../common';
-        
+    <script type="module">       
         // Add this line to reset the animation state
         localStorage.removeItem('about_has_played');
         
@@ -308,11 +306,7 @@
         window.addEventListener('load', scaleContent);
         window.addEventListener('resize', scaleContent);
         
-        window.trigger_frame_animation = function() {
-            if(FLAGS.HTML_LOGS) {
-                console.log('Animation triggered');
-            }
-            
+        window.trigger_frame_animation = function() {           
             const page = document.querySelector('.page');
             
             if(!localStorage.getItem('about_has_played')) {

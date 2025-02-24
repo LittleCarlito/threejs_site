@@ -44,8 +44,6 @@
     <h1>EDUCATION</h1>
 
     <script type="module">
-        import { FLAGS } from '../../common';
-
         class Confetti {
             constructor(canvas) {
                 this.canvas = canvas;
@@ -59,9 +57,6 @@
                 ];
                 this.running = false;
                 this.animationFrameId = null;
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Confetti initialized');
-                }
             }
 
             createParticle() {
@@ -90,17 +85,11 @@
 
             update() {
                 if (!this.running) {
-                    if(FLAGS.HTML_LOGS) {
-                        console.log('Update called but not running, clearing particles:', this.particles.length);
-                    }
                     this.particles = [];
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     return;
                 }
 
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Updating particles:', this.particles.length, 'Running:', this.running);
-                }
 
                 // Update particles
                 this.particles.forEach((p, index) => {
@@ -146,21 +135,12 @@
 
                 if (this.particles.length > 0 && this.running) {
                     this.animationFrameId = requestAnimationFrame(() => this.update());
-                    if(FLAGS.HTML_LOGS) {
-                        console.log('Requesting next frame:', this.animationFrameId);
-                    }
                 } else {
                     this.running = false;
-                    if(FLAGS.HTML_LOGS) {
-                        console.log('Animation stopping naturally');
-                    }
                 }
             }
 
             start() {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Starting confetti animation');
-                }
                 this.running = true;
                 for (let i = 0; i < 200; i++) {
                     this.particles.push(this.createParticle());
@@ -169,9 +149,6 @@
             }
 
             stop() {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Stopping confetti animation. Frame ID:', this.animationFrameId);
-                }
                 this.running = false;
                 if (this.animationFrameId) {
                     cancelAnimationFrame(this.animationFrameId);
@@ -195,34 +172,19 @@
         localStorage.removeItem('education_has_played');
 
         window.trigger_frame_animation = function() {
-            if(FLAGS.HTML_LOGS) {
-                console.log('Animation triggered - localStorage state:', localStorage.getItem('education_has_played'));
-            }
-
             const title = document.querySelector('h1');
-            
             if(!localStorage.getItem('education_has_played')) {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('First time - playing animation');
-                }
-                
                 // Start confetti from center of screen
                 confetti.start();
                 title.classList.add('show');
                 
                 localStorage.setItem('education_has_played', true);
             } else {
-                if(FLAGS.HTML_LOGS) {
-                    console.log('Already played - showing title');
-                }
                 title.classList.add('show');
             }
         };
 
         document.addEventListener('visibilitychange', () => {
-            if(FLAGS.HTML_LOGS) {
-                console.log('Visibility changed - Hidden:', document.hidden, 'Running:', confetti.running);
-            }
             if (document.hidden) {
                 confetti.stop();
                 const title = document.querySelector('h1');
