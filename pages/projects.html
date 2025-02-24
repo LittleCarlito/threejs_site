@@ -65,7 +65,9 @@
 
         @font-face {
             font-family: 'TokyoRockstar';
-            src: url('../fonts/TokyoRockstar.ttf') format('truetype');
+            src: url(window.location.hostname === 'littlecarlito.github.io' 
+                ? '/threejs_site/fonts/TokyoRockstar.ttf'
+                : '../fonts/TokyoRockstar.ttf') format('truetype');
         }
 
         #title_svg {
@@ -229,9 +231,14 @@
         debugContainer.style.zIndex = '100';
         document.body.appendChild(debugContainer);
 
-        opentype.load('../fonts/TokyoRockstar.ttf', function(err, loadedFont) {
+        const fontPath = window.location.hostname === 'littlecarlito.github.io' 
+            ? '/threejs_site/fonts/TokyoRockstar.ttf'
+            : '../fonts/TokyoRockstar.ttf';
+
+        opentype.load(fontPath, function(err, loadedFont) {
             if (err) {
                 console.error('Font loading error:', err);
+                console.log('Attempted font path:', fontPath);
                 return;
             }
             font = loadedFont;
