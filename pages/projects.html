@@ -220,8 +220,19 @@
         let font = null;
         let tape, interceptor;
 
+        // Move debugContainer creation outside of font loading
+        const debugContainer = document.createElement('div');
+        debugContainer.style.position = 'absolute';
+        debugContainer.style.top = '0';
+        debugContainer.style.left = '0';
+        debugContainer.style.width = '100%';
+        debugContainer.style.height = '100%';
+        debugContainer.style.zIndex = '100';
+        document.body.appendChild(debugContainer);
+
         opentype.load('/fonts/TokyoRockstar.ttf', function(err, loadedFont) {
             if (err) {
+                console.error('Font loading error:', err);
                 return;
             }
             font = loadedFont;
@@ -236,16 +247,6 @@
             
             document.body.appendChild(tape);
             document.body.appendChild(interceptor);
-
-            // After font loads
-            const debugContainer = document.createElement('div');
-            debugContainer.style.position = 'absolute';
-            debugContainer.style.top = '0';
-            debugContainer.style.left = '0';
-            debugContainer.style.width = '100%';
-            debugContainer.style.height = '100%';
-            debugContainer.style.zIndex = '100';
-            document.body.appendChild(debugContainer);
 
             // Y positions, heights, widths, and offsets tuned for each item
             const boxConfigs = [
@@ -274,15 +275,15 @@
                 link.style.cursor = 'pointer';
                 debugContainer.appendChild(link);
             });
+            
             // After creating the debug container and links, call updateBoxPositions
             updateBoxPositions();
 
-            // Calculate viewBox height based on number of projects
-            const TITLE_HEIGHT = 100;  // Space for "Projects" title
+            // Calculate and update SVG viewBox
+            const TITLE_HEIGHT = 100;
             const TOTAL_PROJECTS = PROJECTS.length;
-            const TOTAL_HEIGHT = TITLE_HEIGHT + (TOTAL_PROJECTS * Y_SPACING) + 100;  // Extra padding at bottom
+            const TOTAL_HEIGHT = TITLE_HEIGHT + (TOTAL_PROJECTS * Y_SPACING) + 100;
 
-            // Update SVG viewBox when font loads
             const svg = document.querySelector('#title_svg');
             svg.setAttribute('viewBox', `0 0 800 ${TOTAL_HEIGHT}`);
             svg.setAttribute('height', TOTAL_HEIGHT);
@@ -460,34 +461,28 @@
                 // Animate first row
                 for (let char of chars) {
                     await animateCharacter(char, xOffset, yPos, fontSize);
-                    xOffset += fontSize * 0.768; // Adjust spacing between characters
+                    xOffset += font.getAdvanceWidth(char, fontSize) * 0.768; // Adjust spacing between characters
                 }
 
                 // Animate second row
                 for (let char of chars2) {
                     await animateCharacter(char, xOffset2, yPos2, fontSize2);
-                    xOffset2 += fontSize2 * 0.768; // Adjust spacing between characters
+                    xOffset2 += font.getAdvanceWidth(char, fontSize2) * 0.768; // Adjust spacing between characters
                 }
             }
         }
 
-        window.trigger_frame_animation = function() {
-            if(!localStorage.getItem('projects_has_played')) {
-                container.classList.add('show');
-                animateAllText();
-                localStorage.setItem('projects_has_played', true);
-            } else {
-                container.classList.add('show');
-                showAllText();
-            }
-        };
-
+        // Update updateBoxPositions function with safety checks
         function updateBoxPositions() {
             const svg = document.querySelector('#title_svg');
+            if (!svg) return;
+
             const svgRect = svg.getBoundingClientRect();
             const scale = Math.round((svgRect.width / ORIGINAL_SVG_WIDTH) * 1000) / 1000;
 
             const debugContainer = document.querySelector('div[style*="position: absolute"]');
+            if (!debugContainer) return;
+
             const links = debugContainer.getElementsByTagName('a');
 
             PROJECT_LINKS.forEach((config, index) => {
@@ -500,7 +495,7 @@
                 }
             });
 
-            // Update tape position only if tape exists
+            // Update tape position only if all elements exist
             if (tape && interceptor) {
                 const youtubeLink = document.querySelector('a[href*="youtube"]');
                 if (youtubeLink) {
@@ -518,6 +513,24 @@
                 }
             }
         }
+
+        // Update trigger_frame_animation with font check
+        window.trigger_frame_animation = function() {
+            if (!font) {
+                console.warn('Font not loaded yet, retrying in 100ms');
+                setTimeout(window.trigger_frame_animation, 100);
+                return;
+            }
+
+            if(!localStorage.getItem('projects_has_played')) {
+                container.classList.add('show');
+                animateAllText();
+                localStorage.setItem('projects_has_played', true);
+            } else {
+                container.classList.add('show');
+                showAllText();
+            }
+        };
 
         // Use ResizeObserver for more accurate size change detection
         const resizeObserver = new ResizeObserver(() => {
