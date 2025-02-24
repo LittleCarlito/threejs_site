@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/opentype.js/dist/opentype.min.js"></script>
+    <script src="../js/opentype.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -66,7 +65,7 @@
 
         @font-face {
             font-family: 'TokyoRockstar';
-            src: url('/fonts/TokyoRockstar.ttf') format('truetype');
+            src: url('../fonts/TokyoRockstar.ttf') format('truetype');
         }
 
         #title_svg {
@@ -230,7 +229,7 @@
         debugContainer.style.zIndex = '100';
         document.body.appendChild(debugContainer);
 
-        opentype.load('/fonts/TokyoRockstar.ttf', function(err, loadedFont) {
+        opentype.load('../fonts/TokyoRockstar.ttf', function(err, loadedFont) {
             if (err) {
                 console.error('Font loading error:', err);
                 return;
