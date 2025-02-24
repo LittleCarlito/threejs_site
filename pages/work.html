@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+        }
+
+        .terminal-text {
+            position: relative;
+            white-space: pre-wrap;
+            opacity: 0;
+            margin: 20px;
+            max-width: 95vw;
+            line-height: 1.5;
+        }
+
+        .terminal-text.revealed {
+            opacity: 1;
+        }
+
+        .terminal-text.typing {
+            opacity: 1;
+            animation: typing-reveal var(--typing-duration) steps(var(--text-length));
+        }
+
+        .cursor {
+            position: absolute;
+            left: 20px;
+        }
+
+        .cursor.blink {
+            animation: blink 0.75s step-end infinite;
+        }
+
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @keyframes typing-reveal {
+            from { clip-path: inset(0 100% 0 0); }
+            to { clip-path: inset(0 0 0 0); }
+        }
+
+        h3.terminal-text {
+            color: #00cc00;  /* Slightly different shade of green */
+            margin-top: 5px;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+
+        .cursor-line {
+            position: absolute;
+            left: 20px;
+            color: #00ff00;
+            animation: blink 0.75s step-end infinite;
+            z-index: 1000;
+            transition: top 0.1s ease-out;
+        }
+
+        .typing {
+            position: relative;
+        }
+
+        .cursor {
+            animation: blink 0.75s step-end infinite;
+        }
+
+        .typing {
+            animation: none;  /* No blinking during typing */
+        }
+
+        .cursor {
+            animation: blink 0.75s step-end infinite;
+            margin-top: 0.5em;
+        }
+
+        .typing-cursor {
+            opacity: 1;  /* Always visible during typing */
+        }
+
+        .command-line {
+            margin-top: 0.5em;
+            margin-left: 20px;
+            color: #00ff00;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .bash-prompt {
+            white-space: pre;  /* Preserve spaces */
+        }
+
+        .command-text {
+            white-space: pre;  /* Preserve spaces */
+            margin-left: 0;  /* Remove any default margins */
+        }
+
+        .command-cursor {
+            animation: blink 0.75s step-end infinite;
+            margin-left: 1px;
+        }
+
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <h1 class="terminal-text">--------------------------------</h1>
+        <h1 class="terminal-text">WORK EXPERIENCE</h1>
+        <h1 class="terminal-text">--------------------------------</h1>
+        
+        <h2 class="terminal-text">Apex Systems</h2>
+        <h3 class="terminal-text">Java Engineer</h3>
+        <p class="terminal-text">Remote | June 2024 - Present</p>
+        <p class="terminal-text">• Architects and implements enterprise-scale Java solutions for Fortune 500 healthcare clients</p>
+        <p class="terminal-text">• Established comprehensive development standards improving code quality by 40%</p>
+        <p class="terminal-text">• Spearheads client integration with SailPoint identity management platform</p>
+        <p class="terminal-text">• Mentors engineering teams on test-driven development, achieving 95% code coverage</p>
+        
+        <h2 class="terminal-text">Northwestern Mutual</h2>
+        <h3 class="terminal-text">Software Engineer II</h3>
+        <p class="terminal-text">Franklin, WI | 2023 - June 2024</p>
+        <p class="terminal-text">• Pioneered AI-driven healthcare payment matching system processing $50M+ annually</p>
+        <p class="terminal-text">• Led development of mission-critical document processing service handling 100K+ transactions daily</p>
+        <p class="terminal-text">• Architected scalable microservices ecosystem with NoSQL backend supporting 1M+ users</p>
+        <p class="terminal-text">• Achieved 99.99% uptime across critical systems with zero production incidents</p>
+        
+        <h3 class="terminal-text">Software Engineer</h3>
+        <p class="terminal-text">2021 - 2023</p>
+        <p class="terminal-text">• Modernized legacy mainframe systems reducing processing time by 70%</p>
+        <p class="terminal-text">• Earned AWS certification and led cloud migration initiatives</p>
+        <p class="terminal-text">• Implemented comprehensive testing framework achieving 90% coverage across 50K+ lines of code</p>
+        
+        <h2 class="terminal-text">Quad Graphics</h2>
+        <h3 class="terminal-text">Business Analyst</h3>
+        <p class="terminal-text">Sussex, WI | 2014 - 2018</p>
+        <p class="terminal-text">• Orchestrated Agile transformation across 5 development teams</p>
+        <p class="terminal-text">• Revolutionized healthcare mailing system reducing client onboarding from 6 weeks to 5 days</p>
+        <p class="terminal-text">• Managed sensitive healthcare data for 10M+ patients with perfect compliance record</p>
+    </div>
+    <script type="module">
+        import { FLAGS } from '../../common';
+        
+        const CHARS_PER_SECOND = 200;
+        const textElements = document.querySelectorAll('.terminal-text');
+        let animationInProgress = false;
+        let shouldStopAnimation = false;
+        const CURSOR = '█';
+        let commandInput = '';
+        
+        // Generate a random private IP address
+        const randomIP = `172.${Math.floor(Math.random() * 16 + 16)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
+        const BASH_PROMPT = `visitor@ip-${randomIP}:~$ `;
+
+        async function animateText(element) {
+            if(FLAGS.HTML_LOGS) {
+                console.log('Starting animation for element:', element.textContent.substring(0, 20) + '...');
+            }
+            return new Promise(resolve => {
+                if (!element.textContent.trim() || shouldStopAnimation) {
+                    if(FLAGS.HTML_LOGS) {
+                        console.log('Skipping animation - empty text or stop flag');
+                    }
+                    element.classList.add('revealed');
+                    resolve();
+                    return;
+                }
+
+                const text = element.textContent;
+                element.style.opacity = '1';
+                element.textContent = '';
+                
+                let currentChar = 0;
+                const interval = setInterval(() => {
+                    if (shouldStopAnimation) {
+                        clearInterval(interval);
+                        element.textContent = text;
+                        resolve();
+                        return;
+                    }
+
+                    currentChar++;
+                    element.textContent = text.substring(0, currentChar) + CURSOR;
+                    
+                    if (currentChar >= text.length) {
+                        clearInterval(interval);
+                        element.textContent = text; // Remove animation cursor
+                        if(FLAGS.HTML_LOGS) {
+                            console.log('Animation complete for element');
+                        }
+                        setTimeout(resolve, 100);
+                    }
+                }, 1000 / CHARS_PER_SECOND);
+
+                element.dataset.animationTimer = interval;
+            });
+        }
+
+        function createCommandLine(preserveCommand = false) {
+            const commandLine = document.createElement('div');
+            commandLine.className = 'command-line';
+            
+            const promptSpan = document.createElement('span');
+            promptSpan.className = 'bash-prompt';
+            promptSpan.textContent = BASH_PROMPT;
+            
+            const inputSpan = document.createElement('span');
+            inputSpan.className = 'command-text';
+            inputSpan.textContent = preserveCommand ? commandInput : '';
+            
+            const cursorSpan = document.createElement('span');
+            cursorSpan.className = 'command-cursor';
+            cursorSpan.textContent = CURSOR;
+            
+            commandLine.appendChild(promptSpan);
+            commandLine.appendChild(inputSpan);
+            if (!preserveCommand) {
+                commandLine.appendChild(cursorSpan);
+            }
+            
+            document.getElementById('content').appendChild(commandLine);
+        }
+
+        function handleKeyPress(e) {
+            // Prevent browser shortcuts and default behaviors
+            if (e.key === '/' || 
+                e.key === "'" ||
+                (e.ctrlKey && e.key === 'f') ||
+                (e.ctrlKey && e.key === 'g') ||
+                (e.ctrlKey && e.key === 'k') ||
+                (e.ctrlKey && e.key === 'l') ||
+                (e.ctrlKey && e.key === 'p') ||
+                (e.ctrlKey && e.key === 's')) {
+                e.preventDefault();
+            }
+
+            if (!document.querySelector('.command-line')) return;
+            
+            if (e.key === 'Enter') {
+                // Just preserve the current line by removing its cursor
+                const currentLine = document.querySelector('.command-line:last-child');
+                const cursor = currentLine.querySelector('.command-cursor');
+                if (cursor) cursor.remove();
+                
+                // Create new command line
+                commandInput = '';
+                createCommandLine(false);
+            } else if (e.key === 'Backspace') {
+                e.preventDefault();
+                commandInput = commandInput.slice(0, -1);
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                commandInput += e.key;
+            }
+            
+            // Update active command line display
+            const commandLines = document.querySelectorAll('.command-line');
+            const activeCommandLine = commandLines[commandLines.length - 1];
+            if (activeCommandLine) {
+                const commandText = activeCommandLine.querySelector('.command-text');
+                if (commandText) {
+                    commandText.textContent = commandInput;
+                }
+            }
+
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        function stopAllAnimations() {
+            if(FLAGS.HTML_LOGS) {
+                console.log('Stopping all animations');
+            }
+            shouldStopAnimation = true;
+            animationInProgress = false;
+            textElements.forEach(el => {
+                if (el.dataset.animationTimer) {
+                    clearInterval(Number(el.dataset.animationTimer));
+                    delete el.dataset.animationTimer;
+                }
+                el.style.opacity = '1';
+                el.classList.add('revealed');
+                el.textContent = el.textContent.replace(CURSOR, '');
+            });
+            
+            createCommandLine();
+        }
+
+        window.trigger_frame_animation = async function() {
+            if(FLAGS.HTML_LOGS) {
+                console.log('Animation triggered');
+            }
+
+            if (animationInProgress) {
+                stopAllAnimations();
+                return;
+            }
+
+            const existingCommandLine = document.querySelector('.command-line');
+            if (existingCommandLine) {
+                existingCommandLine.remove();
+            }
+
+            animationInProgress = true;
+            shouldStopAnimation = false;
+
+            try {
+                for (const element of textElements) {
+                    if (shouldStopAnimation) break;
+                    await animateText(element);
+                }
+            } finally {
+                if (!shouldStopAnimation) {
+                    createCommandLine();
+                }
+            }
+        };
+
+        // Add both keydown and keypress listeners for better control
+        document.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('keypress', (e) => {
+            if (document.querySelector('.command-line')) {
+                e.preventDefault(); // Prevent double input
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if(FLAGS.HTML_LOGS) {
+                console.log('Visibility changed - Hidden:', document.hidden);
+            }
+            if (document.hidden) {
+                stopAllAnimations();
+            }
+        });
+    </script>
+</body>
+</html>

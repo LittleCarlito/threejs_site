@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .scale-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+        }
+
+        .flipbook {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-origin: left center;
+            transform-style: preserve-3d;
+            transition: all 1.5s cubic-bezier(0.645, 0.045, 0.355, 1);
+            background: white !important;
+            border-right: 2px solid #ccc;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+            left: 0;
+        }
+
+        .front, .back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background: white !important;
+        }
+
+        .front img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .back {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            transform: rotateY(180deg);
+            background: white;
+            position: relative;
+        }
+
+        .header-section {
+            position: relative;
+            width: 100%;
+        }
+
+        h1 {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: calc(2vw + 1.5em);
+            margin: 0;
+            left: 60%;
+            transform: translate(-50%, -50%);
+            padding-top: 3em;
+        }
+
+        .profile-picture {
+            position: absolute;
+            top: 30px;
+            left: 10px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ccc;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .content-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2em;
+            box-sizing: border-box;
+        }
+
+        .section:first-child {
+            transform: translateX(0) translateY(4em);
+            margin-left: 0;
+        }
+
+        .section:last-child {
+            transform: translateX(0) translateY(4em);
+            margin-right: 0;
+        }
+
+        .section {
+            padding: 1em;
+        }
+
+        .section h2 {
+            min-width: 200px;
+            display: inline-block;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .section-content {
+            text-align: left;
+            margin-left: 2em;
+        }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1em;
+            text-align: left;
+            margin-right: 0;
+        }
+
+        h2 {
+            color: black;
+            text-align: center;
+            font-size: 1.5em;
+            margin-top: 1.5em;
+            min-width: 200px;
+            display: inline-block;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        h3 {
+            color: black;
+            text-align: center;
+            font-size: calc(1.2vw + 0.7em);
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            font-size: calc(1vw + 0.6em);
+            margin: 0.5em 0;
+            text-align: left;
+        }
+
+        .page.flipped {
+            transform: translateX(100%) rotateY(-180deg);
+        }
+
+        .about-text {
+            position: absolute;
+            width: 70vw;
+            text-align: left;
+            left: 60%;
+            transform: translateX(-50%);
+            top: 80px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            font-size: calc(1vw + 0.6em);
+        }
+
+        .at-work-list li {
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        .label {
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        .column span {
+            white-space: nowrap;
+            overflow: visible;
+            display: inline-block;
+        }
+
+        .column h2 {
+            min-width: 500px;
+            display: inline-block;
+            text-align: center;
+        }
+
+        /* Add min and max font sizes to ensure readability */
+        @media screen and (max-width: 600px) {
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; }
+            h3 { font-size: 1.2em; }
+            p { font-size: 1em; }
+        }
+
+        @media screen and (min-width: 1200px) {
+            h1 { font-size: 2.8em; }
+            h2 { font-size: 2em; }
+            h3 { font-size: 1.6em; }
+            p { font-size: 1.2em; }
+        }
+
+        .physics-container {
+            margin-top: 30vh;
+            width: 90vw;
+            height: 60vh;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .skill-ball {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s;
+        }
+
+        .skill-ball:hover {
+            transform: scale(1.1);
+        }
+
+        .frontend {
+            background: #2196F3;
+        }
+
+        .backend {
+            background: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="scale-container">
+        <div class="flipbook">
+            <div class="page">
+                <div class="front">
+                    <img src="../images/PlaceholderPicture.jpg" alt="Profile Picture">
+                </div>
+                <div class="back">
+                    <div class="header-section">
+                        <img src="../images/pxArt.png" alt="Profile Picture" class="profile-picture">
+                        <h1>ABOUT</h1>
+                    </div>
+                    <p class="about-text">I have been in the software development industry since 2014. Holding positions from Change Management Representative to Java Engineer at multiple Fortune 500 and 100 companies. Programming is pretty much all I do, reach out to me and maybe I can do it for you!</p>
+                    <div class="content-wrapper">
+                        <div id="physics-container" class="physics-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { FLAGS } from '../../common';
+        
+        // Add this line to reset the animation state
+        localStorage.removeItem('about_has_played');
+        
+        function scaleContent() {
+            const container = document.querySelector('.scale-container');
+            const content = document.querySelector('.flipbook');
+            
+            // Get the actual content size (before any scaling)
+            const contentRect = content.getBoundingClientRect();
+            const contentWidth = contentRect.width;
+            const contentHeight = contentRect.height;
+            
+            // Get the container dimensions
+            const containerWidth = window.innerWidth;
+            const containerHeight = window.innerHeight;
+            
+            // Calculate scale factors
+            const scaleX = containerWidth / contentWidth;
+            const scaleY = containerHeight / contentHeight;
+            
+            // Use the smaller scale factor to maintain aspect ratio
+            // Multiply by 0.8 to make it 80% of the container size
+            const scale = Math.min(scaleX, scaleY, 1) * 1;
+            
+            // Apply the scale transform
+            container.style.transform = `scale(${scale})`;
+        }
+
+        // Call on load and resize
+        window.addEventListener('load', scaleContent);
+        window.addEventListener('resize', scaleContent);
+        
+        window.trigger_frame_animation = function() {
+            if(FLAGS.HTML_LOGS) {
+                console.log('Animation triggered');
+            }
+            
+            const page = document.querySelector('.page');
+            
+            if(!localStorage.getItem('about_has_played')) {
+                // Add a small delay before starting the animation
+                setTimeout(() => {
+                    page.classList.add('flipped');
+                    localStorage.setItem('about_has_played', true);
+                }, 100);
+            } else {
+                // Show the flipped state immediately
+                page.classList.add('flipped');
+            }
+        };
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        const skills = [
+            { name: 'React', icon_path: '../logos/react.svg' },
+            { name: 'ThreeJS', icon_path: '../logos/threejs.svg' },
+            { name: 'JavaScript', icon_path: '../logos/js.svg' },
+            { name: 'TypeScript', icon_path: '../logos/ts.svg' },
+            { name: 'HTML', icon_path: '../logos/html.svg' },
+            { name: 'CSS', icon_path: '../logos/css.svg' },
+            { name: 'WebGL', icon_path: '../logos/web_gl.svg' },
+            { name: 'Spring Boot', icon_path: '../logos/spring.svg' },
+            { name: 'Java', icon_path: '../logos/java.svg' },
+            { name: 'SQL', icon_path: '../logos/sql.svg' },
+            { name: 'Kubernetes', icon_path: '../logos/kubernetes.svg' },
+            { name: 'Docker', icon_path: '../logos/docker.svg' },
+            { name: 'AWS', icon_path: '../logos/aws.svg' },
+            { name: 'GDScript', icon_path: '../logos/gdscript.svg' },
+            { name: 'JUnit 5', icon_path: '../logos/junit.svg' }
+        ];
+
+        let engine, render, world, walls;
+
+        const PHYSICS_CONSTANTS = {
+            // Core movement
+            SWIM_FORCE: 0.003,
+            MAX_SPEED: 3,
+            MIN_SPEED: 0.1,
+            INITIAL_SPEED_FACTOR: 0.5,
+            // Speed variation
+            SPEED_VARIATION_FREQUENCY: 0.001,
+            SPEED_VARIATION_RANGE: 0.3,
+            SPEED_VARIATION_BASE: 0.6,
+            // Movement chances
+            VERTICAL_DRIFT_CHANCE: 0.002,
+            VERTICAL_DRIFT_FORCE: 0.00005,
+            DIRECTION_CHANGE_CHANCE: 0.0005,
+            // Avoidance
+            AVOIDANCE_RADIUS_FACTOR: 3,
+            AVOIDANCE_FORCE_X: 0.0005,
+            AVOIDANCE_FORCE_Y: 0.0001,
+            // Icon scale
+            ICON_SCALE: 1
+        };
+
+        function initPhysics() {
+            const container = document.getElementById('physics-container');
+            const engine = Matter.Engine.create();
+            const world = engine.world;
+            
+            // Remove gravity entirely
+            engine.world.gravity.y = 0;
+            
+            // Add some air resistance to make movement fluid
+            engine.world.airFriction = 0.05;
+
+            const render = Matter.Render.create({
+                element: container,
+                engine: engine,
+                options: {
+                    width: container.clientWidth,
+                    height: container.clientHeight,
+                    wireframes: false,
+                    background: 'transparent'
+                }
+            });
+
+            // Modified image loading with error handling
+            const loadedImages = {};
+            const imagePromises = skills.map(skill => {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        loadedImages[skill.name] = img;
+                        resolve();
+                    };
+                    
+                    img.onerror = (e) => {
+                        console.error(`Failed to load image for ${skill.name}:`, skill.icon_path);
+                        // Resolve anyway to prevent the whole system from failing
+                        resolve();
+                    };
+                    
+                    // Try with and without leading slash
+                    if (skill.icon_path.startsWith('/')) {
+                        img.src = skill.icon_path.substring(1);
+                    } else {
+                        img.src = skill.icon_path;
+                    }
+                });
+            });
+
+            // Rest of the physics initialization
+            Promise.all(imagePromises).then(() => {
+                const logos = [];
+                const radius = 30;
+
+                skills.forEach((skill) => {
+                    const x = Math.random() * (container.clientWidth - radius * 2) + radius;
+                    const y = Math.random() * (container.clientHeight - radius * 2) + radius;
+                    
+                    const individualProperties = {
+                        speedBase: PHYSICS_CONSTANTS.SPEED_VARIATION_BASE + (Math.random() - 0.5) * 0.2,
+                        speedFrequency: PHYSICS_CONSTANTS.SPEED_VARIATION_FREQUENCY * (0.8 + Math.random() * 0.4),
+                        phaseOffset: Math.random() * Math.PI * 2,
+                        speedRange: PHYSICS_CONSTANTS.SPEED_VARIATION_RANGE * (0.8 + Math.random() * 0.4)
+                    };
+                    
+                    const logo = Matter.Bodies.circle(x, y, radius, {
+                        render: {
+                            sprite: {
+                                texture: skill.icon_path,
+                                xScale: PHYSICS_CONSTANTS.ICON_SCALE,
+                                yScale: PHYSICS_CONSTANTS.ICON_SCALE
+                            }
+                        },
+                        restitution: 0.6,
+                        friction: 0.001,
+                        density: 0.0005,
+                        frictionAir: 0.03,
+                        individualProperties
+                    });
+
+                    Matter.World.add(world, logo);
+                    logos.push(logo);
+                });
+
+                // Keep mouse constraint for avoidance only
+                const mouse = Matter.Mouse.create(render.canvas);
+                const mouseConstraint = Matter.MouseConstraint.create(engine, {
+                    mouse: mouse,
+                    constraint: {
+                        stiffness: 0.2,
+                        render: { visible: false }
+                    }
+                });
+                Matter.World.add(world, mouseConstraint);
+                render.mouse = mouse;
+
+                // Keep all the existing physics logic exactly as is
+                Matter.Events.on(engine, 'beforeUpdate', () => {
+                    logos.forEach(logo => {
+                        const position = Matter.Vector.create(logo.position.x, logo.position.y);
+                        const velocity = Matter.Vector.create(logo.velocity.x, logo.velocity.y);
+                        const props = logo.individualProperties;
+                        
+                        const currentSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+                        
+                        if (currentSpeed < PHYSICS_CONSTANTS.MIN_SPEED) {
+                            const direction = Math.random() > 0.5 ? 1 : -1;
+                            Matter.Body.setVelocity(logo, {
+                                x: direction * PHYSICS_CONSTANTS.MAX_SPEED * PHYSICS_CONSTANTS.INITIAL_SPEED_FACTOR,
+                                y: 0
+                            });
+                        } else {
+                            // Use individual properties for speed variation
+                            const speedVariation = Math.sin(engine.timing.timestamp * props.speedFrequency + props.phaseOffset) 
+                                * props.speedRange + props.speedBase;
+                            const targetSpeed = PHYSICS_CONSTANTS.MAX_SPEED * speedVariation;
+                            
+                            const speedAdjustment = (targetSpeed - currentSpeed) * 0.1;
+                            const directionX = velocity.x > 0 ? 1 : -1;
+                            
+                            if (Math.random() < PHYSICS_CONSTANTS.VERTICAL_DRIFT_CHANCE) {
+                                Matter.Body.applyForce(logo, logo.position, {
+                                    x: directionX * speedAdjustment * PHYSICS_CONSTANTS.SWIM_FORCE,
+                                    y: (Math.random() - 0.5) * PHYSICS_CONSTANTS.VERTICAL_DRIFT_FORCE
+                                });
+                            } else {
+                                Matter.Body.applyForce(logo, logo.position, {
+                                    x: directionX * speedAdjustment * PHYSICS_CONSTANTS.SWIM_FORCE,
+                                    y: 0
+                                });
+                            }
+                        }
+
+                        // Direction changes
+                        if (Math.random() < PHYSICS_CONSTANTS.DIRECTION_CHANGE_CHANCE) {
+                            Matter.Body.setVelocity(logo, {
+                                x: -velocity.x,
+                                y: velocity.y
+                            });
+                        }
+
+                        // Avoidance logic for other logos
+                        let avoidanceForce = { x: 0, y: 0 };
+                        logos.forEach(otherLogo => {
+                            if (otherLogo !== logo) {
+                                const dx = otherLogo.position.x - logo.position.x;
+                                const dy = otherLogo.position.y - logo.position.y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                
+                                if (distance < radius * PHYSICS_CONSTANTS.AVOIDANCE_RADIUS_FACTOR) {
+                                    avoidanceForce.x -= (dx / distance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_X;
+                                    avoidanceForce.y -= (dy / distance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_Y;
+                                }
+                            }
+                        });
+
+                        // Only check mouse position if it exists
+                        if (mouseConstraint.mouse.position) {
+                            const dx = mouseConstraint.mouse.position.x - logo.position.x;
+                            const dy = mouseConstraint.mouse.position.y - logo.position.y;
+                            const mouseDistance = Math.sqrt(dx * dx + dy * dy);
+                            const mouseAvoidanceRadius = radius * 5;
+                            
+                            if (mouseDistance < mouseAvoidanceRadius) {
+                                avoidanceForce.x -= (dx / mouseDistance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_X * 2;
+                                avoidanceForce.y -= (dy / mouseDistance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_Y * 2;
+                            }
+                        }
+
+                        // Apply combined avoidance forces
+                        Matter.Body.applyForce(logo, logo.position, avoidanceForce);
+                    });
+                });
+
+                // Keep the runner and walls
+                const runner = Matter.Runner.create();
+                Matter.Runner.run(runner, engine);
+                Matter.Render.run(render);
+
+                walls = [
+                    Matter.Bodies.rectangle(container.clientWidth/2, -10, container.clientWidth, 20, { isStatic: true }),
+                    Matter.Bodies.rectangle(container.clientWidth/2, container.clientHeight + 10, container.clientWidth, 20, { isStatic: true }),
+                    Matter.Bodies.rectangle(-10, container.clientHeight/2, 20, container.clientHeight, { isStatic: true }),
+                    Matter.Bodies.rectangle(container.clientWidth + 10, container.clientHeight/2, 20, container.clientHeight, { isStatic: true })
+                ];
+                Matter.World.add(world, walls);
+            }).catch(error => {
+                console.error('Error during physics initialization:', error);
+            });
+        }
+
+        window.addEventListener('load', initPhysics);
+    </script>
+</body>
+</html>
