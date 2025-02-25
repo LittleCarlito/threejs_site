@@ -153,6 +153,7 @@
         const textElements = document.querySelectorAll('.terminal-text');
         let animationInProgress = false;
         let shouldStopAnimation = false;
+        let hasCompletedOnce = false;
         const CURSOR = '█';
         let commandInput = '';
         
@@ -278,9 +279,15 @@
             });
             
             createCommandLine();
+            hasCompletedOnce = true;
         }
 
         window.trigger_frame_animation = async function() {
+            if (hasCompletedOnce) {
+                stopAllAnimations();
+                return;
+            }
+
             if (animationInProgress) {
                 stopAllAnimations();
                 return;
@@ -299,6 +306,7 @@
                     if (shouldStopAnimation) break;
                     await animateText(element);
                 }
+                hasCompletedOnce = true;
             } finally {
                 if (!shouldStopAnimation) {
                     createCommandLine();
