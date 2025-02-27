@@ -65,9 +65,7 @@
 
         @font-face {
             font-family: 'TokyoRockstar';
-            src: url(window.location.hostname === 'littlecarlito.github.io' 
-                ? '/threejs_site/fonts/TokyoRockstar.ttf'
-                : '../fonts/TokyoRockstar.ttf') format('truetype');
+            src: url('var(--font-path)') format('truetype');
         }
 
         #title_svg {
@@ -142,6 +140,15 @@
     </div>
 
     <script type="module">
+        // Add this at the start of the script
+        // Set the font path based on hostname
+        document.documentElement.style.setProperty(
+            '--font-path',
+            window.location.hostname === 'littlecarlito.github.io' 
+                ? '/threejs_site/fonts/TokyoRockstar.ttf'
+                : '../fonts/TokyoRockstar.ttf'
+        );
+
         // Configuration constants
         const VISUAL_DEBUG = false;
         const ORIGINAL_SVG_WIDTH = 800;
