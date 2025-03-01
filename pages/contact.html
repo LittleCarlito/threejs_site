@@ -2,33 +2,45 @@
 <html>
 <head>
     <style>
-        body{margin:0;padding:120px 0 0 0;background-color:#333333;height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;overflow:hidden}
+        body{
+            margin:0;
+            padding:80px 0 0 0;
+            background-color:transparent;
+            height:100vh;
+            font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+            display:flex;
+            flex-direction:column;
+            justify-content:flex-start;
+            align-items:center;
+            overflow:hidden
+        }
         .message{
             padding:8px 12px;
             border-radius:20px;
-            font-size:16px;
-            max-width:70%;
-            margin:6px;
+            font-size:15px;
+            max-width:75%;
+            margin:5px;
             opacity:0;
             position:relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
-        .left_message{background-color:#333333;color:white;border:1px solid #666666;align-self:flex-start;margin-left:20px}
-        .left_message::before{content:"";position:absolute;left:-4px;bottom:12px;width:8px;height:8px;border-left:1px solid #666666;border-bottom:1px solid #666666;background-color:#333333;transform:rotate(45deg);z-index:1}
-        .right_message{background-color:#007AFF;color:white;align-self:flex-end;margin-right:20px}
-        .right_message::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:#007AFF}
-        .right_message + .right_message{margin-top:7px}
+        .left_message{background-color:rgba(51, 51, 51, 0.8);color:white;border:1px solid #666666;align-self:flex-start;margin-left:20px}
+        .left_message::before{content:"";position:absolute;left:-4px;bottom:12px;width:8px;height:8px;border-left:1px solid #666666;border-bottom:1px solid #666666;background-color:rgba(51, 51, 51, 0.8);transform:rotate(45deg);z-index:1}
+        .right_message{background-color:rgba(0, 122, 255, 0.9);color:white;align-self:flex-end;margin-right:20px}
+        .right_message::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:rgba(0, 122, 255, 0.9)}
+        .right_message + .right_message{margin-top:5px}
         .right_message + .left_message, .left_message + .typing-indicator{
-            margin-top:120px;
+            margin-top:80px;
         }
         .typing-indicator + .right_message{
-            margin-top:90px;
+            margin-top:60px;
         }
         .typing-indicator{
             padding:8px 12px;
             border-radius:20px;
             align-self:flex-end;
             margin-right:20px;
-            background-color:#007AFF;
+            background-color:rgba(0, 122, 255, 0.9);
             opacity:0;
             display:none;
             position:absolute;
@@ -56,7 +68,7 @@
                 transform: scale(1) translateY(0);
             }
         }
-        .typing-indicator::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:#007AFF}
+        .typing-indicator::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:rgba(0, 122, 255, 0.9)}
         .typing-indicator span{width:6px;height:6px;background-color:white;display:inline-block;border-radius:50%;margin:0 1px;animation:typing 1.4s infinite}
         .typing-indicator span:nth-child(2){animation-delay:0.2s}
         .typing-indicator span:nth-child(3){animation-delay:0.4s}
