@@ -214,11 +214,10 @@
             
             commandLine.appendChild(promptSpan);
             commandLine.appendChild(inputSpan);
-            if (!preserveCommand) {
-                commandLine.appendChild(cursorSpan);
-            }
+            commandLine.appendChild(cursorSpan);
             
             document.getElementById('content').appendChild(commandLine);
+            return commandLine;
         }
 
         function handleKeyPress(e) {
@@ -234,15 +233,33 @@
                 e.preventDefault();
             }
 
-            if (!document.querySelector('.command-line')) return;
+            const currentCommandLine = document.querySelector('.command-line:last-child');
+            if (!currentCommandLine) return;
             
             if (e.key === 'Enter') {
-                // Just preserve the current line by removing its cursor
-                const currentLine = document.querySelector('.command-line:last-child');
-                const cursor = currentLine.querySelector('.command-cursor');
-                if (cursor) cursor.remove();
+                // Store the current command
+                const enteredCommand = commandInput;
                 
-                // Create new command line
+                // Create a new div for the completed command
+                const completedLine = document.createElement('div');
+                completedLine.className = 'command-line';
+                
+                // Add the prompt and command text
+                const promptSpan = document.createElement('span');
+                promptSpan.className = 'bash-prompt';
+                promptSpan.textContent = BASH_PROMPT;
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'command-text';
+                textSpan.textContent = enteredCommand;
+                
+                completedLine.appendChild(promptSpan);
+                completedLine.appendChild(textSpan);
+                
+                // Replace the current line with the completed one
+                currentCommandLine.replaceWith(completedLine);
+                
+                // Create new command line and reset input
                 commandInput = '';
                 createCommandLine(false);
             } else if (e.key === 'Backspace') {
@@ -253,13 +270,9 @@
             }
             
             // Update active command line display
-            const commandLines = document.querySelectorAll('.command-line');
-            const activeCommandLine = commandLines[commandLines.length - 1];
-            if (activeCommandLine) {
-                const commandText = activeCommandLine.querySelector('.command-text');
-                if (commandText) {
-                    commandText.textContent = commandInput;
-                }
+            const commandText = currentCommandLine.querySelector('.command-text');
+            if (commandText) {
+                commandText.textContent = commandInput;
             }
 
             window.scrollTo(0, document.body.scrollHeight);
@@ -278,7 +291,23 @@
                 el.textContent = el.textContent.replace(CURSOR, '');
             });
             
-            createCommandLine();
+            // Ensure the current command line has a cursor
+            const currentCommandLine = document.querySelector('.command-line:last-child');
+            if (currentCommandLine) {
+                // Make sure there's only one cursor
+                const existingCursor = currentCommandLine.querySelector('.command-cursor');
+                if (existingCursor) {
+                    existingCursor.remove();
+                }
+                
+                // Add the cursor
+                const cursorSpan = document.createElement('span');
+                cursorSpan.className = 'command-cursor';
+                cursorSpan.textContent = CURSOR;
+                currentCommandLine.appendChild(cursorSpan);
+            } else {
+                createCommandLine();
+            }
             hasCompletedOnce = true;
         }
 
@@ -325,6 +354,21 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopAllAnimations();
+            } else {
+                // Find the current command line
+                const currentCommandLine = document.querySelector('.command-line:last-child');
+                if (currentCommandLine) {
+                    // Add cursor to existing line if it doesn't have one
+                    if (!currentCommandLine.querySelector('.command-cursor')) {
+                        const cursorSpan = document.createElement('span');
+                        cursorSpan.className = 'command-cursor';
+                        cursorSpan.textContent = CURSOR;
+                        currentCommandLine.appendChild(cursorSpan);
+                    }
+                } else {
+                    // Only create a new line if there isn't one
+                    createCommandLine();
+                }
             }
         });
     </script>
