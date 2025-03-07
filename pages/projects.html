@@ -142,13 +142,12 @@
     </div>
 
     <script type="module">
-        // Import the font utilities
-        import { getFontPath } from '../../common/config.js';
-        
-        // Set the font path based on hostname using our utility
+        // Set the font path based on hostname
         document.documentElement.style.setProperty(
             '--font-path',
-            getFontPath('TokyoRockstar.ttf', true)
+            window.location.hostname === 'littlecarlito.github.io' 
+                ? '/threejs_site/fonts/TokyoRockstar.ttf'
+                : '../fonts/TokyoRockstar.ttf'
         );
 
         // Configuration constants
@@ -240,8 +239,10 @@
         debugContainer.style.zIndex = '100';
         document.body.appendChild(debugContainer);
 
-        // Use the imported getFontPath function
-        const fontPath = getFontPath('TokyoRockstar.ttf', true);
+        // Determine the correct font path based on the hostname
+        const fontPath = window.location.hostname === 'littlecarlito.github.io' 
+            ? '/threejs_site/fonts/TokyoRockstar.ttf'
+            : '../fonts/TokyoRockstar.ttf';
 
         opentype.load(fontPath, function(err, loadedFont) {
             if (err) {
