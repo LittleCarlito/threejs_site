@@ -23,11 +23,13 @@
             opacity:0;
             position:relative;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            transform-origin: center bottom;
         }
-        .left_message{background-color:rgba(51, 51, 51, 0.8);color:white;border:1px solid #666666;align-self:flex-start;margin-left:20px}
-        .left_message::before{content:"";position:absolute;left:-4px;bottom:12px;width:8px;height:8px;border-left:1px solid #666666;border-bottom:1px solid #666666;background-color:rgba(51, 51, 51, 0.8);transform:rotate(45deg);z-index:1}
-        .right_message{background-color:rgba(0, 122, 255, 0.9);color:white;align-self:flex-end;margin-right:20px}
-        .right_message::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:rgba(0, 122, 255, 0.9)}
+        .left_message{background-color:#333333;color:white;border:1px solid #666666;align-self:flex-start;margin-left:35px}
+        .left_message::before{content:"";position:absolute;left:-4px;bottom:12px;width:8px;height:8px;border-left:1px solid #666666;border-bottom:1px solid #666666;background-color:#333333;transform:rotate(45deg);z-index:1}
+        .right_message{background-color:#007AFF;color:white;align-self:flex-end;margin-right:35px}
+        .right_message::before{content:"";position:absolute;right:-4px;bottom:12px;width:8px;height:8px;border-right:1px solid #0066EB;border-bottom:1px solid #0066EB;background-color:#007AFF;transform:rotate(-45deg);z-index:1}
         .right_message + .right_message{margin-top:5px}
         .right_message + .left_message, .left_message + .typing-indicator{
             margin-top:80px;
@@ -39,42 +41,52 @@
             padding:8px 12px;
             border-radius:20px;
             align-self:flex-end;
-            margin-right:20px;
-            background-color:rgba(0, 122, 255, 0.9);
+            margin-right:35px;
+            background-color:#007AFF;
             opacity:0;
             display:none;
             position:absolute;
             right:0;
             top:50%;
             transform:translateY(-50%);
+            transition: transform 0.3s ease;
         }
         .message.show{
             opacity:1;
-            animation: bounce 0.3s cubic-bezier(0.13, 0.01, 0.25, 1.3);
+            animation: bounce 0.5s cubic-bezier(0.2, 0.8, 0.4, 1.4);
         }
         @keyframes bounce {
             0% {
                 opacity: 0;
-                transform: scale(0.8) translateY(10px);
+                transform: scale(0.4) translateY(40px) rotate(-3deg);
+            }
+            25% {
+                transform: scale(1.1) translateY(-10px) rotate(3deg);
             }
             50% {
-                transform: scale(1.05) translateY(-2px);
+                transform: scale(0.95) translateY(5px) rotate(-1deg);
             }
-            70% {
-                transform: scale(0.98) translateY(1px);
+            75% {
+                transform: scale(1.05) translateY(-3px) rotate(1deg);
             }
             100% {
                 opacity: 1;
-                transform: scale(1) translateY(0);
+                transform: scale(1) translateY(0) rotate(0);
             }
         }
-        .typing-indicator::before{content:"";position:absolute;right:1.5px;bottom:4px;width:10px;height:6px;clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 100%);background-color:rgba(0, 122, 255, 0.9)}
+        .typing-indicator::before{content:"";position:absolute;right:-4px;bottom:12px;width:8px;height:8px;border-right:1px solid #0066EB;border-bottom:1px solid #0066EB;background-color:#007AFF;transform:rotate(-45deg);z-index:1}
         .typing-indicator span{width:6px;height:6px;background-color:white;display:inline-block;border-radius:50%;margin:0 1px;animation:typing 1.4s infinite}
         .typing-indicator span:nth-child(2){animation-delay:0.2s}
         .typing-indicator span:nth-child(3){animation-delay:0.4s}
         @keyframes typing{
             0%, 100%{transform:translateY(0)}
-            50%{transform:translateY(-6px)}
+            50%{transform:translateY(-8px)}
+        }
+        /* Add responsive adjustments for extreme resizing */
+        @media (min-width: 768px) {
+            .message {
+                transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            }
         }
     </style>
 </head>
@@ -91,25 +103,146 @@
     <script type="module">
         const messages = document.querySelectorAll('.message');
         const typingIndicator = document.querySelector('.typing-indicator');
+        
+        // Store original positions for reference during extreme resizes
+        let originalPositions = [];
+        let startingWidth = 0;
+        let isFirstLoad = true;
+        
+        // Function to save original positions at initial load
+        function captureOriginalPositions() {
+            startingWidth = window.innerWidth;
+            
+            // Skip if already captured
+            if (originalPositions.length > 0) return;
+            
+            originalPositions = Array.from(messages).map(message => {
+                const rect = message.getBoundingClientRect();
+                return {
+                    top: rect.top,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height,
+                    element: message
+                };
+            });
+        }
+        
+        // Function to handle resize with special handling for extreme cases
+        function handleResize() {
+            const currentWidth = window.innerWidth;
+            const currentHeight = window.innerHeight;
+            
+            // Calculate the resize ratio
+            const widthRatio = currentWidth / startingWidth;
+            
+            // If we're resizing from very small to large (extreme case)
+            const isExtremeResize = window.previousWidth < 500 && currentWidth > 800;
+            
+            if (isExtremeResize) {
+                // Add special handling for extreme resize - significantly more padding
+                document.body.style.padding = '80px 100px 0 100px';
+                
+                // Keep bubbles contained within a reasonable area
+                messages.forEach((message, i) => {
+                    if (message.classList.contains('show')) {
+                        // Apply subtle scale and position adjustment for better fitting
+                        if (message.classList.contains('left_message')) {
+                            message.style.transform = 'translateX(15%)';
+                        } else if (message.classList.contains('right_message')) {
+                            message.style.transform = 'translateX(-15%)';
+                        }
+                    }
+                });
+                
+                // Add a subtle animation for the transition
+                document.body.style.transition = 'padding 0.3s ease-out';
+            } else {
+                // Normal resize handling
+                if (currentWidth < window.previousWidth) {
+                    // Reset transforms when going back to smaller size
+                    messages.forEach(message => {
+                        message.style.transform = '';
+                    });
+                    document.body.style.padding = '80px 0 0 0';
+                } else if (currentWidth > window.previousWidth) {
+                    // Subtle padding increase when growing
+                    const padding = Math.min(40, Math.max(0, (currentWidth - window.previousWidth) / 30));
+                    document.body.style.padding = `80px ${padding}px 0 ${padding}px`;
+                }
+            }
+            
+            // Store current width for next comparison
+            window.previousWidth = currentWidth;
+        }
+        
+        // Store initial width
+        window.previousWidth = window.innerWidth;
+        
+        // Add resize listener with debounce for smoother transitions
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(handleResize, 50);
+        });
+        
+        // More fun, cartoonish animation sequence
         window.trigger_frame_animation = function() {
             if(!localStorage.getItem('contact_has_played')){
+                // Show first message with a fun bounce (no random rotation)
                 messages[0].classList.add('show');
                 
                 setTimeout(() => {
                     typingIndicator.style.display = 'block';
                     typingIndicator.style.opacity = '1';
-                }, 400);
+                    // Add a little wiggle to the typing indicator
+                    typingIndicator.animate(
+                        [
+                            { transform: 'translateY(-50%) scale(0.95)' },
+                            { transform: 'translateY(-50%) scale(1.05)' },
+                            { transform: 'translateY(-50%) scale(1)' }
+                        ],
+                        { duration: 400, easing: 'ease-in-out' }
+                    );
+                }, 600);
                 
                 setTimeout(() => {
+                    // Fade out typing with a little bounce
+                    typingIndicator.animate(
+                        [
+                            { transform: 'translateY(-50%) scale(1)', opacity: 1 },
+                            { transform: 'translateY(-50%) scale(1.1)', opacity: 0.5 },
+                            { transform: 'translateY(-50%) scale(0)', opacity: 0 }
+                        ],
+                        { duration: 300, easing: 'ease-in' }
+                    );
+                    
                     typingIndicator.style.opacity = '0';
                     setTimeout(() => typingIndicator.style.display = 'none', 300);
                     
+                    // Show each message with slight delay variation for more natural feel
                     for(let i = 1; i < messages.length; i++) {
                         setTimeout(() => {
                             messages[i].classList.add('show');
-                        }, (i - 1) * 800);
+                            // Add a little extra animation after the bounce
+                            setTimeout(() => {
+                                messages[i].animate(
+                                    [
+                                        { transform: 'scale(1)' },
+                                        { transform: 'scale(1.03)' },
+                                        { transform: 'scale(1)' }
+                                    ],
+                                    { duration: 200, easing: 'ease-in-out' }
+                                );
+                            }, 500);
+                        }, (i - 1) * 800 + Math.random() * 100); // Add some randomness
                     }
-                }, 1000);
+                    
+                    // Capture positions after all animations complete
+                    setTimeout(() => {
+                        captureOriginalPositions();
+                    }, (messages.length - 1) * 800 + 500);
+                }, 1200);
                 
                 localStorage.setItem('contact_has_played', true);
             } else {
@@ -118,9 +251,72 @@
                 });
                 typingIndicator.style.display = 'none';
                 typingIndicator.style.opacity = '0';
+                
+                // Capture positions for already shown messages
+                setTimeout(captureOriginalPositions, 50);
             }
+            
+            isFirstLoad = false;
         };
+        
         localStorage.removeItem('contact_has_played');
+        
+        // Listen for parent window resize events
+        window.addEventListener('message', function(event) {
+            if (event.data === 'resize') {
+                handleResize();
+            } else if (event.data === 'extreme-resize') {
+                // Handle extreme resize case with more aggressive adjustments
+                document.body.style.padding = '80px 120px 0 120px';
+                
+                // Apply transformations to keep bubbles properly contained
+                messages.forEach(message => {
+                    if (message.classList.contains('show')) {
+                        if (message.classList.contains('left_message')) {
+                            message.style.transform = 'translateX(20%)';
+                        } else if (message.classList.contains('right_message')) {
+                            message.style.transform = 'translateX(-20%)';
+                        }
+                    }
+                });
+                
+                // Smooth transition
+                document.body.style.transition = 'padding 0.4s ease-out';
+                messages.forEach(message => {
+                    message.style.transition = 'transform 0.4s ease-out';
+                });
+            }
+        });
+        
+        // Enhanced hover animations for more playful feel
+        messages.forEach(message => {
+            message.addEventListener('mouseover', () => {
+                if (message.classList.contains('show')) {
+                    const isLeft = message.classList.contains('left_message');
+                    const rotation = isLeft ? '2deg' : '-2deg';
+                    message.style.transform = `scale(1.03) rotate(${rotation})`;
+                    message.style.boxShadow = '0 3px 10px rgba(0,0,0,0.2)';
+                }
+            });
+            
+            message.addEventListener('mouseout', () => {
+                if (message.classList.contains('show')) {
+                    if (window.innerWidth < 500 || window.previousWidth < 500) {
+                        // For small screens, keep the transform needed for proper positioning
+                        const isLeft = message.classList.contains('left_message');
+                        if (isLeft) {
+                            message.style.transform = 'translateX(15%)';
+                        } else {
+                            message.style.transform = 'translateX(-15%)';
+                        }
+                    } else {
+                        // Otherwise reset completely
+                        message.style.transform = '';
+                    }
+                    message.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+                }
+            });
+        });
     </script>
 </body>
 </html>

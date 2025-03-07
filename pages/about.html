@@ -221,8 +221,19 @@
             border: 2px solid #ccc;
             border-radius: 8px;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.95);
+            background: transparent;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .water-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
         }
 
         .skill-ball {
@@ -234,13 +245,26 @@
             color: white;
             font-size: 12px;
             font-weight: bold;
-            cursor: pointer;
+            cursor: grab;
             user-select: none;
             transition: transform 0.2s;
+            z-index: 1;
+            /* Add subtle shadow to make icons look like they're floating above water */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .skill-ball:hover {
             transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .skill-ball:active {
+            cursor: grabbing;
+            transform: scale(1.15);
+        }
+        
+        canvas {
+            cursor: grab;
         }
 
         .frontend {
@@ -266,7 +290,9 @@
                     </div>
                     <p class="about-text">I have been in the software development industry since 2014. Holding positions from Change Management Representative to Java Engineer at multiple Fortune 500 and 100 companies. Programming is pretty much all I do, reach out to me and maybe I can do it for you!</p>
                     <div class="content-wrapper">
-                        <div id="physics-container" class="physics-container"></div>
+                        <div id="physics-container" class="physics-container">
+                            <div id="water-container" class="water-container"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -323,6 +349,7 @@
     </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const skills = [
             { name: 'React', icon_path: '../logos/react.svg' },
@@ -343,41 +370,84 @@
         ];
 
         let engine, render, world, walls;
+        let runner;
+        let isVisible = true;
+        let resizeTimeout;  // Add this variable for debouncing resize
+        let physicsObjects = []; // Track all physics objects for repositioning
 
         const PHYSICS_CONSTANTS = {
             // Core movement
-            SWIM_FORCE: 0.003,
-            MAX_SPEED: 3,
-            MIN_SPEED: 0.1,
-            INITIAL_SPEED_FACTOR: 0.5,
+            SWIM_FORCE: 0.004,
+            MAX_SPEED: 4,
+            MIN_SPEED: 0.3,              // Increased from 0.2 to avoid very slow choppy movement
+            INITIAL_SPEED_FACTOR: 0.6,
             // Speed variation
-            SPEED_VARIATION_FREQUENCY: 0.001,
-            SPEED_VARIATION_RANGE: 0.3,
-            SPEED_VARIATION_BASE: 0.6,
+            SPEED_VARIATION_FREQUENCY: 0.0015,
+            SPEED_VARIATION_RANGE: 0.4,
+            SPEED_VARIATION_BASE: 0.7,
             // Movement chances
             VERTICAL_DRIFT_CHANCE: 0.002,
-            VERTICAL_DRIFT_FORCE: 0.00005,
+            VERTICAL_DRIFT_FORCE: 0.0001,
             DIRECTION_CHANGE_CHANCE: 0.0005,
             // Avoidance
-            AVOIDANCE_RADIUS_FACTOR: 3,
-            AVOIDANCE_FORCE_X: 0.0005,
-            AVOIDANCE_FORCE_Y: 0.0001,
+            AVOIDANCE_RADIUS_FACTOR: 3.0,
+            AVOIDANCE_FORCE_X: 0.001,
+            AVOIDANCE_FORCE_Y: 0.0005,
             // Icon scale
-            ICON_SCALE: 1
+            ICON_SCALE: 1,
+            // Animation smoothness
+            CALCULATION_THROTTLE: 1,
+            VELOCITY_DAMPING: 0.9,       // New: smooths direction changes
+            INTERPOLATION_FACTOR: 0.08,  // New: for smoother force application
+            // Mouse specific settings
+            MOUSE_AVOIDANCE_RADIUS_FACTOR: 6,
+            MOUSE_FORCE_MULTIPLIER: 4
+        };
+
+        // Store global references to water effect components
+        let waterEffect = {
+            renderer: null,
+            scene: null,
+            camera: null,
+            bufferA: null,
+            bufferB: null,
+            bufferB1: null, 
+            bufferB2: null,
+            currentBufferA: null,
+            previousBufferA: null,
+            currentBufferB: null,
+            previousBufferB: null,
+            geometry: null,
+            bufferAMaterial: null,
+            bufferBMaterial: null,
+            renderMaterial: null,
+            initialized: false
         };
 
         function initPhysics() {
             const container = document.getElementById('physics-container');
-            const engine = Matter.Engine.create();
-            const world = engine.world;
+            engine = Matter.Engine.create();
+            world = engine.world;
             
             // Remove gravity entirely
             engine.world.gravity.y = 0;
             
             // Add some air resistance to make movement fluid
-            engine.world.airFriction = 0.05;
+            engine.world.airFriction = 0.01; // Reduced from 0.03 for smoother slow movement
 
-            const render = Matter.Render.create({
+            // Check if this page is initially visible (in focus)
+            // Default to paused if we can't determine
+            isVisible = false;
+            
+            // Try to detect if we're the active frame by checking if we're visible
+            // This is an approximation
+            if (document.visibilityState === 'visible') {
+                // We're visible, but we might not be the active iframe
+                // We'll assume we're not active until we receive a message
+                isVisible = false;
+            }
+
+            render = Matter.Render.create({
                 element: container,
                 engine: engine,
                 options: {
@@ -442,14 +512,19 @@
                         friction: 0.001,
                         density: 0.0005,
                         frictionAir: 0.03,
-                        individualProperties
+                        individualProperties,
+                        isSkillBall: true, // Tag these bodies as skill balls
+                        skill: skill.name // Store the skill name for reference
                     });
 
                     Matter.World.add(world, logo);
                     logos.push(logo);
                 });
 
-                // Keep mouse constraint for avoidance only
+                // Store logos in global array for resize handling
+                physicsObjects = logos;
+
+                // Improve mouse constraint for better interaction
                 const mouse = Matter.Mouse.create(render.canvas);
                 const mouseConstraint = Matter.MouseConstraint.create(engine, {
                     mouse: mouse,
@@ -458,11 +533,28 @@
                         render: { visible: false }
                     }
                 });
+                
+                // Make cursor change to grabbing when dragging objects
+                render.canvas.addEventListener('mousedown', () => {
+                    render.canvas.style.cursor = 'grabbing';
+                });
+                
+                render.canvas.addEventListener('mouseup', () => {
+                    render.canvas.style.cursor = 'grab';
+                });
+                
                 Matter.World.add(world, mouseConstraint);
                 render.mouse = mouse;
 
                 // Keep all the existing physics logic exactly as is
+                let frameCounter = 0;
                 Matter.Events.on(engine, 'beforeUpdate', () => {
+                    // Skip calculations occasionally to save CPU
+                    frameCounter++;
+                    if (frameCounter % PHYSICS_CONSTANTS.CALCULATION_THROTTLE !== 0) {
+                        return; // Skip this frame's calculations
+                    }
+
                     logos.forEach(logo => {
                         const position = Matter.Vector.create(logo.position.x, logo.position.y);
                         const velocity = Matter.Vector.create(logo.velocity.x, logo.velocity.y);
@@ -472,9 +564,16 @@
                         
                         if (currentSpeed < PHYSICS_CONSTANTS.MIN_SPEED) {
                             const direction = Math.random() > 0.5 ? 1 : -1;
-                            Matter.Body.setVelocity(logo, {
+                            // Apply a smooth acceleration rather than an instant velocity change
+                            const targetVelocity = {
                                 x: direction * PHYSICS_CONSTANTS.MAX_SPEED * PHYSICS_CONSTANTS.INITIAL_SPEED_FACTOR,
                                 y: 0
+                            };
+                            
+                            // Blend the current velocity with target velocity for smooth transition
+                            Matter.Body.setVelocity(logo, {
+                                x: velocity.x + (targetVelocity.x - velocity.x) * PHYSICS_CONSTANTS.INTERPOLATION_FACTOR * 3,
+                                y: velocity.y + (targetVelocity.y - velocity.y) * PHYSICS_CONSTANTS.INTERPOLATION_FACTOR * 2
                             });
                         } else {
                             // Use individual properties for speed variation
@@ -485,25 +584,39 @@
                             const speedAdjustment = (targetSpeed - currentSpeed) * 0.1;
                             const directionX = velocity.x > 0 ? 1 : -1;
                             
+                            // Apply smooth force transitions
+                            let forceX = directionX * speedAdjustment * PHYSICS_CONSTANTS.SWIM_FORCE;
+                            let forceY = 0;
+                            
                             if (Math.random() < PHYSICS_CONSTANTS.VERTICAL_DRIFT_CHANCE) {
-                                Matter.Body.applyForce(logo, logo.position, {
-                                    x: directionX * speedAdjustment * PHYSICS_CONSTANTS.SWIM_FORCE,
-                                    y: (Math.random() - 0.5) * PHYSICS_CONSTANTS.VERTICAL_DRIFT_FORCE
-                                });
-                            } else {
-                                Matter.Body.applyForce(logo, logo.position, {
-                                    x: directionX * speedAdjustment * PHYSICS_CONSTANTS.SWIM_FORCE,
-                                    y: 0
-                                });
+                                forceY = (Math.random() - 0.5) * PHYSICS_CONSTANTS.VERTICAL_DRIFT_FORCE;
                             }
+                            
+                            // Store previous forces for interpolation if not already present
+                            if (!logo.previousForce) {
+                                logo.previousForce = { x: forceX, y: forceY };
+                            }
+                            
+                            // Interpolate between previous and current forces for smoothness
+                            const interpolatedForce = {
+                                x: logo.previousForce.x + (forceX - logo.previousForce.x) * PHYSICS_CONSTANTS.INTERPOLATION_FACTOR,
+                                y: logo.previousForce.y + (forceY - logo.previousForce.y) * PHYSICS_CONSTANTS.INTERPOLATION_FACTOR
+                            };
+                            
+                            Matter.Body.applyForce(logo, logo.position, interpolatedForce);
+                            
+                            // Store current force for next frame
+                            logo.previousForce = { x: forceX, y: forceY };
                         }
 
-                        // Direction changes
+                        // Direction changes with damping for smoothness
                         if (Math.random() < PHYSICS_CONSTANTS.DIRECTION_CHANGE_CHANCE) {
-                            Matter.Body.setVelocity(logo, {
-                                x: -velocity.x,
+                            // Instead of instant direction change, gradually change direction
+                            const dampedVelocity = {
+                                x: -velocity.x * PHYSICS_CONSTANTS.VELOCITY_DAMPING,
                                 y: velocity.y
-                            });
+                            };
+                            Matter.Body.setVelocity(logo, dampedVelocity);
                         }
 
                         // Avoidance logic for other logos
@@ -526,11 +639,16 @@
                             const dx = mouseConstraint.mouse.position.x - logo.position.x;
                             const dy = mouseConstraint.mouse.position.y - logo.position.y;
                             const mouseDistance = Math.sqrt(dx * dx + dy * dy);
-                            const mouseAvoidanceRadius = radius * 5;
+                            const mouseAvoidanceRadius = radius * PHYSICS_CONSTANTS.MOUSE_AVOIDANCE_RADIUS_FACTOR;
                             
                             if (mouseDistance < mouseAvoidanceRadius) {
-                                avoidanceForce.x -= (dx / mouseDistance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_X * 2;
-                                avoidanceForce.y -= (dy / mouseDistance) * PHYSICS_CONSTANTS.AVOIDANCE_FORCE_Y * 2;
+                                // Use inverse square law for more natural avoidance behavior
+                                const force = Math.min(1, (mouseAvoidanceRadius / mouseDistance) - 1);
+                                const strengthX = PHYSICS_CONSTANTS.AVOIDANCE_FORCE_X * PHYSICS_CONSTANTS.MOUSE_FORCE_MULTIPLIER * force;
+                                const strengthY = PHYSICS_CONSTANTS.AVOIDANCE_FORCE_Y * PHYSICS_CONSTANTS.MOUSE_FORCE_MULTIPLIER * force;
+                                
+                                avoidanceForce.x -= (dx / mouseDistance) * strengthX;
+                                avoidanceForce.y -= (dy / mouseDistance) * strengthY;
                             }
                         }
 
@@ -540,9 +658,25 @@
                 });
 
                 // Keep the runner and walls
-                const runner = Matter.Runner.create();
+                runner = Matter.Runner.create({
+                    isFixed: true,  // Use fixed timestep for smoother animation
+                    delta: 1000/60  // Target 60 FPS
+                });
                 Matter.Runner.run(runner, engine);
                 Matter.Render.run(render);
+
+                // Add event listener for visibility changes
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                
+                // Add a custom event listener for when this iframe gains/loses focus
+                window.addEventListener('message', function(event) {
+                    if (event.data && typeof event.data === 'object') {
+                        if (event.data.type === 'visibility') {
+                            isVisible = event.data.visible;
+                            handleVisibilityChange();
+                        }
+                    }
+                });
 
                 walls = [
                     Matter.Bodies.rectangle(container.clientWidth/2, -10, container.clientWidth, 20, { isStatic: true }),
@@ -556,7 +690,840 @@
             });
         }
 
-        window.addEventListener('load', initPhysics);
+        // Function to handle visibility changes
+        function handleVisibilityChange() {
+            if (runner) {
+                if (document.hidden || !isVisible) {
+                    // Pause the physics simulation when not visible
+                    Matter.Runner.stop(runner);
+                    if (render) Matter.Render.stop(render);
+                } else {
+                    // Resume the physics simulation when visible
+                    Matter.Runner.start(runner, engine);
+                    if (render) Matter.Render.run(render);
+                }
+            }
+        }
+
+        // Function to handle window resize for both physics and water effect
+        function handleResize() {
+            // Clear the timeout if it exists to debounce multiple resize events
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+            
+            // Set a timeout to actually perform the resize operation
+            resizeTimeout = setTimeout(() => {
+                const container = document.getElementById('physics-container');
+                const waterContainer = document.getElementById('water-container');
+                
+                // Only proceed if the containers exist
+                if (!container || !waterContainer) return;
+                
+                const newWidth = container.clientWidth;
+                const newHeight = container.clientHeight;
+                const oldWidth = render ? render.options.width : newWidth;
+                const oldHeight = render ? render.options.height : newHeight;
+                
+                // Resize the physics engine if it exists
+                if (engine && render && world) {
+                    // Check if we're expanding the container
+                    const isExpanding = newWidth > oldWidth || newHeight > oldHeight;
+                    
+                    // Update renderer dimensions
+                    render.options.width = newWidth;
+                    render.options.height = newHeight;
+                    render.canvas.width = newWidth;
+                    render.canvas.height = newHeight;
+                    
+                    // Remove old walls if they exist
+                    if (walls && walls.length) {
+                        Matter.Composite.remove(world, walls);
+                    }
+                    
+                    // Create new walls
+                    walls = [
+                        Matter.Bodies.rectangle(newWidth/2, -10, newWidth, 20, { isStatic: true }),
+                        Matter.Bodies.rectangle(newWidth/2, newHeight + 10, newWidth, 20, { isStatic: true }),
+                        Matter.Bodies.rectangle(-10, newHeight/2, 20, newHeight, { isStatic: true }),
+                        Matter.Bodies.rectangle(newWidth + 10, newHeight/2, 20, newHeight, { isStatic: true })
+                    ];
+                    Matter.World.add(world, walls);
+                    
+                    // If expanding, redistribute any physics objects that might be outside the old bounds
+                    if (isExpanding && physicsObjects.length > 0) {
+                        const radius = 30; // Same as in the initialization
+                        
+                        physicsObjects.forEach(obj => {
+                            // Check if object is too close to the edge or outside the bounds
+                            const isNearEdge = (
+                                obj.position.x < radius + 10 || 
+                                obj.position.x > oldWidth - radius - 10 ||
+                                obj.position.y < radius + 10 || 
+                                obj.position.y > oldHeight - radius - 10
+                            );
+                            
+                            // Reposition objects near the edge to ensure proper distribution
+                            if (isNearEdge) {
+                                const newX = Math.random() * (newWidth - radius * 2) + radius;
+                                const newY = Math.random() * (newHeight - radius * 2) + radius;
+                                
+                                Matter.Body.setPosition(obj, { x: newX, y: newY });
+                                // Also reset velocity to prevent fast objects from immediately hitting walls
+                                Matter.Body.setVelocity(obj, { x: 0, y: 0 });
+                            }
+                        });
+                    }
+                    
+                    // Update mouse constraint if it exists
+                    if (render.mouse) {
+                        render.mouse.element.removeEventListener('mousewheel', render.mouse.mousewheel);
+                        render.mouse.element.removeEventListener('DOMMouseScroll', render.mouse.mousewheel);
+                        render.mouse = Matter.Mouse.create(render.canvas);
+                        
+                        // Find and update the mouse constraint
+                        let mouseConstraint = null;
+                        for (let i = 0; i < world.constraints.length; i++) {
+                            const constraint = world.constraints[i];
+                            if (constraint.label === 'mouse' || 
+                                (constraint.mouseConstraint && constraint.bodyB === null)) {
+                                mouseConstraint = constraint;
+                                break;
+                            }
+                        }
+                        
+                        if (mouseConstraint) {
+                            mouseConstraint.mouse = render.mouse;
+                        }
+                    }
+                }
+                
+                // Resize the water effect if it's initialized
+                if (waterEffect.initialized) {
+                    resizeWaterEffect();
+                }
+                
+            }, 250); // Wait 250ms after the last resize event
+        }
+        
+        // Separate function to resize just the water effect
+        function resizeWaterEffect() {
+            if (!waterEffect.initialized) return;
+            
+            const container = document.getElementById('water-container');
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            
+            // Check if this is a significant expansion (growing size by more than 10%)
+            const widthIncreaseFactor = newWidth / waterEffect.renderer.domElement.width;
+            const heightIncreaseFactor = newHeight / waterEffect.renderer.domElement.height;
+            const isSignificantExpansion = (widthIncreaseFactor > 1.1 || heightIncreaseFactor > 1.1);
+            
+            // For significant expansions, completely reinitialize the water effect
+            if (isSignificantExpansion) {
+                // Clean up the current water effect
+                cleanupWaterEffect();
+                
+                // Remove the old canvas
+                if (waterEffect.renderer && waterEffect.renderer.domElement) {
+                    const oldCanvas = waterEffect.renderer.domElement;
+                    if (oldCanvas.parentNode) {
+                        oldCanvas.parentNode.removeChild(oldCanvas);
+                    }
+                }
+                
+                // Reset the water effect object
+                waterEffect = {
+                    renderer: null,
+                    scene: null,
+                    camera: null,
+                    bufferA: null,
+                    bufferB: null,
+                    bufferB1: null, 
+                    bufferB2: null,
+                    currentBufferA: null,
+                    previousBufferA: null,
+                    currentBufferB: null,
+                    previousBufferB: null,
+                    geometry: null,
+                    bufferAMaterial: null,
+                    bufferBMaterial: null,
+                    renderMaterial: null,
+                    initialized: false
+                };
+                
+                // Reinitialize the water effect
+                setTimeout(() => {
+                    initWaterEffect();
+                }, 50);
+                
+                return;
+            }
+            
+            // For minor size changes, perform normal resize
+            // Update the renderer size
+            waterEffect.renderer.setSize(newWidth, newHeight);
+            
+            // Update camera
+            waterEffect.camera.left = -newWidth / 2;
+            waterEffect.camera.right = newWidth / 2;
+            waterEffect.camera.top = newHeight / 2;
+            waterEffect.camera.bottom = -newHeight / 2;
+            waterEffect.camera.updateProjectionMatrix();
+            
+            // Update the geometry
+            waterEffect.scene.remove(waterEffect.renderMesh);
+            waterEffect.geometry.dispose();
+            waterEffect.geometry = new THREE.PlaneGeometry(newWidth, newHeight);
+            waterEffect.renderMesh = new THREE.Mesh(waterEffect.geometry, waterEffect.renderMaterial);
+            waterEffect.renderMesh.position.set(0, 0, 0);
+            waterEffect.scene.add(waterEffect.renderMesh);
+            
+            // Update all shader uniforms
+            waterEffect.bufferAMaterial.uniforms.iResolution.value.set(newWidth, newHeight);
+            waterEffect.bufferBMaterial.uniforms.iResolution.value.set(newWidth, newHeight);
+            waterEffect.renderMaterial.uniforms.iResolution.value.set(newWidth, newHeight);
+            
+            // Cleanup old render targets
+            waterEffect.bufferA.dispose();
+            waterEffect.bufferB.dispose();
+            waterEffect.bufferB1.dispose();
+            waterEffect.bufferB2.dispose();
+            
+            // Create new render targets
+            waterEffect.bufferA = new THREE.WebGLRenderTarget(newWidth, newHeight, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            waterEffect.bufferB = new THREE.WebGLRenderTarget(newWidth, newHeight, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            waterEffect.bufferB1 = new THREE.WebGLRenderTarget(newWidth, newHeight, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            waterEffect.bufferB2 = new THREE.WebGLRenderTarget(newWidth, newHeight, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            // Update buffer references
+            waterEffect.currentBufferA = waterEffect.bufferA;
+            waterEffect.previousBufferA = waterEffect.bufferB;
+            waterEffect.currentBufferB = waterEffect.bufferB1;
+            waterEffect.previousBufferB = waterEffect.bufferB2;
+            
+            // Always reset buffers after resize
+            resetWaterBuffers();
+        }
+        
+        // Function to completely clean up the water effect
+        function cleanupWaterEffect() {
+            if (!waterEffect.initialized) return;
+            
+            // Dispose of all resources
+            if (waterEffect.bufferA) waterEffect.bufferA.dispose();
+            if (waterEffect.bufferB) waterEffect.bufferB.dispose();
+            if (waterEffect.bufferB1) waterEffect.bufferB1.dispose();
+            if (waterEffect.bufferB2) waterEffect.bufferB2.dispose();
+            
+            if (waterEffect.geometry) waterEffect.geometry.dispose();
+            
+            if (waterEffect.bufferAMaterial) waterEffect.bufferAMaterial.dispose();
+            if (waterEffect.bufferBMaterial) waterEffect.bufferBMaterial.dispose();
+            if (waterEffect.renderMaterial) waterEffect.renderMaterial.dispose();
+            
+            if (waterEffect.renderMesh && waterEffect.scene) {
+                waterEffect.scene.remove(waterEffect.renderMesh);
+            }
+            
+            if (waterEffect.renderer) {
+                waterEffect.renderer.dispose();
+                // Force a WebGL context reset for a cleaner state
+                waterEffect.renderer.forceContextLoss();
+            }
+        }
+        
+        // Function to reset water buffer state
+        function resetWaterBuffers() {
+            if (!waterEffect.initialized) return;
+            
+            const width = waterEffect.renderer.domElement.width;
+            const height = waterEffect.renderer.domElement.height;
+            
+            // Create a clear buffer with black transparent pixels
+            const clearData = new Float32Array(width * height * 4);
+            for (let i = 0; i < clearData.length; i++) {
+                clearData[i] = 0.0;
+            }
+            
+            // Reset all buffers to initial state
+            const tempScene = new THREE.Scene();
+            const clearMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0 });
+            const clearPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(width, height),
+                clearMaterial
+            );
+            tempScene.add(clearPlane);
+            
+            // Clear all buffer textures by rendering a black transparent plane
+            waterEffect.renderer.setRenderTarget(waterEffect.bufferA);
+            waterEffect.renderer.clear();  // Actually clear the buffer first
+            waterEffect.renderer.render(tempScene, waterEffect.camera);
+            
+            waterEffect.renderer.setRenderTarget(waterEffect.bufferB);
+            waterEffect.renderer.clear();
+            waterEffect.renderer.render(tempScene, waterEffect.camera);
+            
+            waterEffect.renderer.setRenderTarget(waterEffect.bufferB1);
+            waterEffect.renderer.clear();
+            waterEffect.renderer.render(tempScene, waterEffect.camera);
+            
+            waterEffect.renderer.setRenderTarget(waterEffect.bufferB2);
+            waterEffect.renderer.clear();
+            waterEffect.renderer.render(tempScene, waterEffect.camera);
+            
+            // Clear render target
+            waterEffect.renderer.setRenderTarget(null);
+            waterEffect.renderer.clear();
+            
+            // Reset frame counter in the shaders
+            if (waterEffect.bufferAMaterial && waterEffect.bufferAMaterial.uniforms) {
+                waterEffect.bufferAMaterial.uniforms.iFrame.value = 0;
+                waterEffect.bufferAMaterial.uniforms.iTime.value = 0;
+            }
+            
+            if (waterEffect.bufferBMaterial && waterEffect.bufferBMaterial.uniforms) {
+                waterEffect.bufferBMaterial.uniforms.iFrame.value = 0;
+                waterEffect.bufferBMaterial.uniforms.iTime.value = 0;
+            }
+            
+            // Clean up
+            tempScene.remove(clearPlane);
+            clearPlane.geometry.dispose();
+            clearMaterial.dispose();
+        }
+
+        // Water ripple effect
+        const initWaterEffect = () => {
+            const container = document.getElementById('water-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Setup renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+            
+            // Setup scene and camera
+            const scene = new THREE.Scene();
+            const camera = new THREE.OrthographicCamera(
+                -width / 2, width / 2, height / 2, -height / 2, 0.1, 1000
+            );
+            camera.position.z = 1;
+            
+            // Setup render targets (buffers)
+            const bufferA = new THREE.WebGLRenderTarget(width, height, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            const bufferB = new THREE.WebGLRenderTarget(width, height, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            // For ping-pong rendering
+            let currentBufferA = bufferA;
+            let previousBufferA = bufferB;
+            
+            // Create additional buffers for B
+            const bufferB1 = new THREE.WebGLRenderTarget(width, height, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            const bufferB2 = new THREE.WebGLRenderTarget(width, height, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.FloatType
+            });
+            
+            let currentBufferB = bufferB1;
+            let previousBufferB = bufferB2;
+            
+            // Store references in the global object
+            waterEffect.renderer = renderer;
+            waterEffect.scene = scene;
+            waterEffect.camera = camera;
+            waterEffect.bufferA = bufferA;
+            waterEffect.bufferB = bufferB;
+            waterEffect.bufferB1 = bufferB1;
+            waterEffect.bufferB2 = bufferB2;
+            waterEffect.currentBufferA = currentBufferA;
+            waterEffect.previousBufferA = previousBufferA;
+            waterEffect.currentBufferB = currentBufferB;
+            waterEffect.previousBufferB = previousBufferB;
+            
+            // Mouse position - initialize to off-screen to prevent idle ripple at (0,0)
+            let mousePosition = new THREE.Vector2(-1000, -1000);
+            let mousePressed = false;
+            let hasMouseEntered = false; // Flag to track if mouse has entered the container
+            
+            // Shader for Buffer A (water physics)
+            const bufferAMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    iTime: { value: 0 },
+                    iFrame: { value: 0 },
+                    iMouse: { value: new THREE.Vector4(-1000, -1000, 0, 0) }, // Initialize off-screen
+                    iResolution: { value: new THREE.Vector2(width, height) },
+                    iChannel0: { value: null }, // Previous buffer A
+                    iChannel1: { value: null }  // Current buffer B
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float iTime;
+                    uniform int iFrame;
+                    uniform vec4 iMouse;
+                    uniform vec2 iResolution;
+                    uniform sampler2D iChannel0;
+                    uniform sampler2D iChannel1;
+                    varying vec2 vUv;
+                    
+                    // Convert UV to pixel coordinates
+                    vec2 uvToPixel(vec2 uv) {
+                        return uv * iResolution;
+                    }
+                    
+                    // Texture fetch to match Shadertoy's texelFetch
+                    vec4 texelFetch(sampler2D tex, ivec2 pixel, int lod) {
+                        return texture2D(tex, (vec2(pixel) + 0.5) / iResolution);
+                    }
+                    
+                    // Ripples code adapted from Shadertoy
+                    #define T(a,b) texelFetch(iChannel0, ivec2(coord)+ivec2(a,b), 0)
+                    #define B(U) texelFetch(iChannel1, ivec2(U), 0)
+                    
+                    void main() {
+                        vec2 coord = uvToPixel(vUv);
+                        
+                        float h = (T(0, 1).x +
+                                 T(0, -1).x +
+                                 T(1, 0).x +
+                                 T(-1, 0).x) / 2.0;
+                        
+                        float t = 0.99 * (h - T(0, 0).y);
+                        
+                        // Only apply ripple effects if mouse has entered the container
+                        if (iMouse.x > -999.0) { // Check if mouse is no longer at the initialized off-screen position
+                            // Enhanced mouse ripple effect - larger radius and stronger effect
+                            // First condition: mouse button pressed - creates strong ripples
+                            if (iMouse.z > 0.5 && 18.0 - length(iMouse.xy - coord) > 0.0) {
+                                t = 1.4; // Reduced from 1.8 for more subtle ripples when mouse is pressed
+                            } 
+                            // Second condition: mouse motion only - creates subtle ripples
+                            // We use sin(iTime) to create a continuous ripple effect while moving
+                            else if (25.0 - length(iMouse.xy - coord) > 0.0) {
+                                float mouseRippleIntensity = 0.25 + 0.2 * sin(iTime * 10.0); // Reduced intensity
+                                t += mouseRippleIntensity * (1.0 - length(iMouse.xy - coord) / 25.0);
+                            }
+                        }
+                        
+                        // Get particle info from buffer B
+                        vec4 bData = B(coord);
+                        
+                        // First few frames just initialize to 0
+                        if (iFrame < 10) {
+                            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                        } else {
+                            // Apply damping from particles when they move (as in original shader)
+                            float damping = max(4.0 - length(bData.xy - coord), 0.0) * length(bData.zw + vec2(0.001)) / 200.0;
+                            gl_FragColor = vec4(t - damping, T(0, 0).x, 0.0, 1.0);
+                        }
+                    }
+                `
+            });
+            
+            // Shader for Buffer B (particle physics)
+            const bufferBMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    iTime: { value: 0 },
+                    iFrame: { value: 0 },
+                    iMouse: { value: new THREE.Vector4(0, 0, 0, 0) },
+                    iResolution: { value: new THREE.Vector2(width, height) },
+                    iChannel0: { value: null }, // Current buffer A
+                    iChannel1: { value: null }  // Previous buffer B
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float iTime;
+                    uniform int iFrame;
+                    uniform vec4 iMouse;
+                    uniform vec2 iResolution;
+                    uniform sampler2D iChannel0;
+                    uniform sampler2D iChannel1;
+                    varying vec2 vUv;
+                    
+                    // Convert UV to pixel coordinates
+                    vec2 uvToPixel(vec2 uv) {
+                        return uv * iResolution;
+                    }
+                    
+                    // Texture fetch to match Shadertoy's texelFetch
+                    vec4 texelFetch(sampler2D tex, ivec2 pixel, int lod) {
+                        return texture2D(tex, (vec2(pixel) + 0.5) / iResolution);
+                    }
+                    
+                    #define Pspawn 20.0
+                    #define Pgrid 5.0
+                    
+                    #define A(U) texelFetch(iChannel0, ivec2(U), 0).x
+                    #define B(a,b) texelFetch(iChannel1, ivec2(coord) + ivec2(a,b), 0)
+                    #define dA(U,R) A(U+R)-A(U-R)
+                    
+                    #define N(U,A,B) if(length(U-B.xy)<length(U-A.xy)){A = B;}
+                    
+                    void main() {
+                        vec2 coord = uvToPixel(vUv);
+                        
+                        // Start with the current particle
+                        vec4 particle = B(0, 0);
+                        
+                        // Find the nearest particle
+                        N(coord, particle, B(0, 1));
+                        N(coord, particle, B(1, 0));
+                        N(coord, particle, B(0, -1));
+                        N(coord, particle, B(-1, 0));
+                        N(coord, particle, B(2, 2));
+                        N(coord, particle, B(2, -2));
+                        N(coord, particle, B(-2, 2));
+                        N(coord, particle, B(-2, -2));
+                        
+                        // Initialize or respawn particles
+                        if (iFrame == 0 || (length(coord - particle.xy) > Pspawn)) {
+                            particle = vec4(round(coord / Pgrid) * Pgrid, 0.0, 0.0);
+                        }
+                        
+                        // Update particle velocity based on water gradients
+                        particle.zw -= vec2(
+                            dA(particle.xy, vec2(1.0, 0.0)),
+                            dA(particle.xy, vec2(0.0, 1.0))
+                        );
+                        
+                        // Damping
+                        particle.zw *= 0.99;
+                        
+                        // Update position
+                        particle.xy += particle.zw;
+                        
+                        gl_FragColor = particle;
+                    }
+                `
+            });
+            
+            // Final visualization shader
+            const renderMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    iTime: { value: 0 },
+                    iResolution: { value: new THREE.Vector2(width, height) },
+                    iChannel0: { value: null },  // Buffer A
+                    iChannel1: { value: null }   // Buffer B
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float iTime;
+                    uniform vec2 iResolution;
+                    uniform sampler2D iChannel0;
+                    uniform sampler2D iChannel1;
+                    varying vec2 vUv;
+                    
+                    // Convert UV to pixel coordinates
+                    vec2 uvToPixel(vec2 uv) {
+                        return uv * iResolution;
+                    }
+                    
+                    // Texture fetch to match Shadertoy's texelFetch
+                    vec4 texelFetch(sampler2D tex, ivec2 pixel, int lod) {
+                        return texture2D(tex, (vec2(pixel) + 0.5) / iResolution);
+                    }
+                    
+                    #define l normalize(vec2(1))
+                    #define A(U) texelFetch(iChannel0, ivec2(U), 0).x
+                    #define B(U) texelFetch(iChannel1, ivec2(U), 0).xy
+                    #define dA(U,R) A(U+R)-A(U-R)
+                    #define DB(U) length(B(U)-U)
+                    #define dDB(U,R) DB(U+R)-DB(U-R)
+                    
+                    // Function to add subtle shimmer/variation to the water
+                    float shimmer(vec2 coord, float time) {
+                        // Create subtle wave patterns that move over time
+                        float waves = sin(coord.x * 0.05 + time) * sin(coord.y * 0.04 + time * 0.8) * 0.5 + 0.5;
+                        return waves * 0.07; // Keep subtle
+                    }
+                    
+                    void main() {
+                        vec2 coord = uvToPixel(vUv);
+                        
+                        // Make water more blue by adjusting the base color - reduce intensity for more translucency
+                        vec3 waterColor = vec3(0.12, 0.2, 0.7) + 
+                            0.5 * dot(vec2(dA(coord, vec2(1.0, 0.0)), 
+                                     dA(coord, vec2(0.0, 1.0))), l);
+                        
+                        // Add the particle influence (similar to Shadertoy)
+                        float particleEffect = 0.0;
+                        vec2 gradientDB = vec2(
+                            dDB(coord, vec2(1.0, 0.0)),
+                            dDB(coord, vec2(0.0, 1.0))
+                        );
+                        
+                        if (length(gradientDB) > 0.0) {
+                            particleEffect = (0.5 * dot(normalize(gradientDB), l) + 0.5) 
+                                           * max(1.0 - 0.5 * length(coord - B(coord)), 0.0);
+                        }
+                        
+                        // Enhance blue tint but keep it more transparent
+                        vec3 finalColor = waterColor;
+                        finalColor.b += 0.08; // Reduced for less intensity
+                        finalColor.r *= 0.9; // Less reduction to preserve visibility
+                        
+                        // Add subtle shimmer/variation to make the water feel more alive
+                        float shimmerEffect = shimmer(coord, iTime);
+                        finalColor.b += shimmerEffect * 0.4;
+                        finalColor.g += shimmerEffect * 0.15;
+                        
+                        // Create a gradient from deeper blue (center) to lighter blue (edges)
+                        float distFromCenter = length(coord - iResolution * 0.5) / length(iResolution * 0.5);
+                        float edgeFade = smoothstep(0.7, 1.0, distFromCenter);
+                        
+                        // Blend toward a lighter blue at the edges
+                        vec3 edgeColor = vec3(0.25, 0.4, 0.8);
+                        finalColor = mix(finalColor, edgeColor, edgeFade * 0.2);
+                        
+                        // Calculate ripple intensity - used to make ripples more visible
+                        // Reduce the intensity to make ripples more subtle
+                        float rippleIntensity = abs(dA(coord, vec2(1.0, 0.0))) + abs(dA(coord, vec2(0.0, 1.0)));
+                        rippleIntensity *= 0.7; // Scale down ripple intensity overall
+                        
+                        // Make the base water extremely translucent
+                        float baseAlpha = 0.12 * (1.0 - edgeFade * 0.3);
+                        
+                        // Make ripples only slightly more opaque than the base water
+                        float alphaBoost = min(0.4, rippleIntensity * 1.8); // Reduced boost factor for more translucent ripples
+                        float alpha = mix(baseAlpha, min(0.25, baseAlpha + 0.15), alphaBoost);
+                        
+                        // Adjust the color based on ripple intensity - make ripples slightly brighter
+                        // Reduce the brightness boost to make ripples less intense
+                        finalColor = mix(finalColor, finalColor * 1.1, min(0.4, rippleIntensity * 0.8));
+                        
+                        gl_FragColor = vec4(finalColor, alpha);
+                    }
+                `,
+                transparent: true
+            });
+            
+            // Create meshes for rendering
+            const geometry = new THREE.PlaneGeometry(width, height);
+            const bufferAMesh = new THREE.Mesh(geometry, bufferAMaterial);
+            const bufferBMesh = new THREE.Mesh(geometry, bufferBMaterial);
+            const renderMesh = new THREE.Mesh(geometry, renderMaterial);
+            
+            // Store in global object
+            waterEffect.geometry = geometry;
+            waterEffect.bufferAMaterial = bufferAMaterial;
+            waterEffect.bufferBMaterial = bufferBMaterial;
+            waterEffect.renderMaterial = renderMaterial;
+            waterEffect.renderMesh = renderMesh;
+            
+            // Center meshes
+            bufferAMesh.position.set(0, 0, 0);
+            bufferBMesh.position.set(0, 0, 0);
+            renderMesh.position.set(0, 0, 0);
+            
+            scene.add(renderMesh);
+            
+            // Event listeners for mouse interaction
+            const physicsContainer = document.getElementById('physics-container');
+            
+            // Track when mouse enters the container for the first time
+            physicsContainer.addEventListener('mouseenter', (event) => {
+                hasMouseEntered = true;
+                
+                // Get the initial mouse position when entering
+                const rect = container.getBoundingClientRect();
+                mousePosition.x = event.clientX - rect.left;
+                mousePosition.y = height - (event.clientY - rect.top); // Flip Y for WebGL coordinates
+                
+                // Update the mouse position in the shaders
+                bufferAMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferAMaterial.uniforms.iMouse.value.y = mousePosition.y;
+                bufferBMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferBMaterial.uniforms.iMouse.value.y = mousePosition.y;
+            });
+            
+            // Add mouseleave handler to stop ripples when mouse leaves
+            physicsContainer.addEventListener('mouseleave', () => {
+                // Move mouse position off-screen to stop ripples
+                bufferAMaterial.uniforms.iMouse.value.x = -1000;
+                bufferAMaterial.uniforms.iMouse.value.y = -1000;
+                bufferBMaterial.uniforms.iMouse.value.x = -1000;
+                bufferBMaterial.uniforms.iMouse.value.y = -1000;
+            });
+            
+            physicsContainer.addEventListener('mousemove', (event) => {
+                if (!hasMouseEntered) {
+                    hasMouseEntered = true;
+                }
+                
+                // Convert to pixel coordinates
+                const rect = container.getBoundingClientRect();
+                mousePosition.x = event.clientX - rect.left;
+                mousePosition.y = height - (event.clientY - rect.top); // Flip Y for WebGL coordinates
+                bufferAMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferAMaterial.uniforms.iMouse.value.y = mousePosition.y;
+                bufferBMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferBMaterial.uniforms.iMouse.value.y = mousePosition.y;
+                
+                // Set a minimum "movement ripple" effect even when not clicking
+                if (!mousePressed) {
+                    bufferAMaterial.uniforms.iMouse.value.w = 1.0; // Use w component to indicate movement
+                }
+            });
+            
+            physicsContainer.addEventListener('mousedown', (event) => {
+                mousePressed = true;
+                
+                // Make sure coordinates are updated
+                const rect = container.getBoundingClientRect();
+                mousePosition.x = event.clientX - rect.left;
+                mousePosition.y = height - (event.clientY - rect.top);
+                
+                bufferAMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferAMaterial.uniforms.iMouse.value.y = mousePosition.y;
+                bufferAMaterial.uniforms.iMouse.value.z = 1.0;
+                
+                bufferBMaterial.uniforms.iMouse.value.x = mousePosition.x;
+                bufferBMaterial.uniforms.iMouse.value.y = mousePosition.y;
+                bufferBMaterial.uniforms.iMouse.value.z = 1.0;
+                
+                bufferAMaterial.uniforms.iMouse.value.w = 0.0; // Reset movement indicator
+            });
+            
+            window.addEventListener('mouseup', () => {
+                mousePressed = false;
+                bufferAMaterial.uniforms.iMouse.value.z = 0.0;
+                bufferBMaterial.uniforms.iMouse.value.z = 0.0;
+            });
+            
+            // Animation loop
+            let frameCount = 0;
+            const animate = () => {
+                requestAnimationFrame(animate);
+                
+                // Only run animation if visible
+                if (document.hidden || !isVisible) {
+                    return;
+                }
+                
+                // Update uniforms
+                const time = performance.now() * 0.001;
+                bufferAMaterial.uniforms.iTime.value = time;
+                bufferAMaterial.uniforms.iFrame.value = frameCount;
+                bufferBMaterial.uniforms.iTime.value = time;
+                bufferBMaterial.uniforms.iFrame.value = frameCount;
+                renderMaterial.uniforms.iTime.value = time;
+                
+                // Update Buffer B first (particle positions)
+                renderer.setRenderTarget(currentBufferB);
+                bufferBMaterial.uniforms.iChannel0.value = previousBufferA.texture; // Use previous A
+                bufferBMaterial.uniforms.iChannel1.value = previousBufferB.texture; // Use previous B
+                scene.overrideMaterial = bufferBMaterial;
+                renderer.render(scene, camera);
+                
+                // Swap B buffers
+                let temp = previousBufferB;
+                previousBufferB = currentBufferB;
+                currentBufferB = temp;
+                
+                // Now update Buffer A (water physics)
+                renderer.setRenderTarget(currentBufferA);
+                bufferAMaterial.uniforms.iChannel0.value = previousBufferA.texture; // Use previous A
+                bufferAMaterial.uniforms.iChannel1.value = previousBufferB.texture; // Use updated B
+                scene.overrideMaterial = bufferAMaterial;
+                renderer.render(scene, camera);
+                
+                // Swap A buffers
+                temp = previousBufferA;
+                previousBufferA = currentBufferA;
+                currentBufferA = temp;
+                
+                // Render to screen
+                renderer.setRenderTarget(null);
+                renderMaterial.uniforms.iChannel0.value = previousBufferA.texture; // Use updated A
+                renderMaterial.uniforms.iChannel1.value = previousBufferB.texture; // Use updated B
+                scene.overrideMaterial = renderMaterial;
+                renderer.render(scene, camera);
+                
+                frameCount++;
+            };
+            
+            // Mark water effect as initialized
+            waterEffect.initialized = true;
+            
+            // Start animation
+            animate();
+            
+            return { renderer, animate };
+        };
+        
+        window.addEventListener('load', () => {
+            initPhysics();
+            
+            // Initialize water effect after physics
+            setTimeout(() => {
+                initWaterEffect();
+            }, 100);
+            
+            // Add global resize handler
+            window.addEventListener('resize', handleResize);
+        });
     </script>
 </body>
 </html>
