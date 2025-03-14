@@ -1,0 +1,353 @@
+{
+    "manifest_version": "1.0",
+    "name": "PortfolioSite", 
+    "description": "Portfolio website showing small cubical and displaying relevant work information",
+    "author": "Steven Meier",
+    "created_date": "03/10/2025",
+    "updated_date": "03/10/2025",
+    
+    
+    "custom_types": [],
+    "joint_data": {
+        "type": "FIXED",
+        "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "target_id": "",
+        "limits": {
+            "angular": {
+                "x": { "min": 0, "max": 0 },
+                "y": { "min": 0, "max": 0 },
+                "z": { "min": 0, "max": 0 }
+            },
+            "linear": {
+                "x": { "min": 0, "max": 0 },
+                "y": { "min": 0, "max": 0 },
+                "z": { "min": 0, "max": 0 }
+            }
+        },
+        "parameters": {
+            "stiffness": 0,
+            "damping": 0
+        }
+    },
+    "asset_groups": [{
+        "id": "example_group",
+        "name": "Furniture Group", 
+        "description": "All furniture assets",
+        "tags": ["furniture", "indoor"],
+        "assets": ["desk1", "chair1"],
+        "active": true,
+        "toggle_behavior": "ALL"
+    }],
+    
+    "asset_data": { 
+        "id": "example_asset",
+        "type": "CUSTOM",
+        "asset_type": "example_type",
+        "version": "1.0",
+        "config": {
+            "collidable": true,
+            "hidden": false,
+            "disabled": false,
+            "sleeping": true,
+            "gravity": true,
+            "interactable": true,
+            "selectable": true,
+            "highlightable": true
+        },
+        "tags": ["furniture"],
+        "group_id": "example_group",
+        "joints": [],
+        "parent": {},
+        "children": [],
+        "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "target": {
+            "id": "",
+            "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        "additional_properties": {
+            "color": "0xffffff",
+            "intensity": 0.0,
+            "max_distance": 0,
+            "angle": 0.0,
+            "penumbra": 0.0,
+            "sharpness": 0.0,
+            "cast_shadows": true,
+            "blur_samples": 0,
+            "fov": 0,
+            "near": 0,
+            "far": 0,
+            "bias": 0.0,
+            "normal_bias": 0.0,
+            "aspect_ratio": 1.6,
+            "near_clipping": 0.1,
+            "far_clipping": 10000.0,
+            "animations": [{
+                "name": "",
+                "autoplay": false,
+                "loop": false,
+                "duration": 1.0,
+                "clamp": true
+            }]
+        }
+    },
+    "application_assets": [],
+    "system_assets": [
+        {
+            "id": "background_floor",
+            "type": "SYSTEM",
+            "asset_type": "primitive_box",
+            "version": "1.0",
+            "config": {
+                "collidable": true,
+                "hidden": false,
+                "disabled": false,
+                "sleeping": false,
+                "gravity": false,
+                "interactable": false,
+                "selectable": false,
+                "highlightable": false
+            },
+            "tags": ["environment", "floor"],
+            "group_id": "",
+            "joints": [],
+            "parent": {},
+            "children": [],
+            "position": {
+                "x": 0,
+                "y": -10.2,
+                "z": 0
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "additional_properties": {
+                "color": "0x808080",
+                "cast_shadows": false,
+                "receive_shadows": true,
+                "physical_dimensions": {
+                    "width": 100,
+                    "height": 1,
+                    "depth": 100
+                },
+                "collider_dimensions": {
+                    "width": 50,
+                    "height": 0.5,
+                    "depth": 50
+                },
+                "restitution": 0.3,
+                "mass": 0,
+                "friction": 0.8,
+                "raycast_disabled": true
+            }
+        },
+        {
+            "id": "primary_spotlight",
+            "type": "SYSTEM",
+            "asset_type": "spotlight",
+            "version": "1.0",
+            "config": {
+                "collidable": false,
+                "hidden": false,
+                "disabled": false,
+                "sleeping": false,
+                "gravity": false,
+                "interactable": false,
+                "selectable": false,
+                "highlightable": false
+            },
+            "tags": ["lighting", "spotlight"],
+            "group_id": "",
+            "joints": [],
+            "parent": {},
+            "children": [],
+            "position": {
+                "x": 0,
+                "y": 50,
+                "z": 0
+            },
+            "rotation": {
+                "x": -1.5707963267948966,
+                "y": 0,
+                "z": 0
+            },
+            "target": {
+                "id": "primary_spotlight_target",
+                "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            },
+            "additional_properties": {
+                "color": "0xffffff",
+                "intensity": 0.8,
+                "max_distance": 0,
+                "angle": 0.19634954084936207,
+                "penumbra": 0.05,
+                "sharpness": 0.5,
+                "cast_shadows": true,
+                "shadow": {
+                    "blur_samples": 32,
+                    "radius": 4,
+                    "map_size": {
+                        "width": 2048,
+                        "height": 2048
+                    },
+                    "camera": {
+                        "near": 10,
+                        "far": 100,
+                        "fov": 30
+                    },
+                    "bias": -0.002,
+                    "normal_bias": 0.02
+                }
+            }
+        }
+    ],
+    "scene_data": {
+        "version": "1.0",
+        "name": "Main Scene",
+        "description": "The main interactive scene",
+        "base_url": "",
+        "auto_throttle": true,
+        "greeting_data": {
+            "display": true,
+            "modal_path": "pages/under_construction.html"
+        },
+        "background": {
+            "type": "IMAGE",
+            "image_path": "images/gradient.jpg"
+        },
+        "environment": {
+            "gravity": {
+                "x": 0.0,
+                "y": -9.8,
+                "z": 0.0
+            },
+            "ambient_light": {
+                "color": "0xffffff",
+                "intensity": 0.5
+            },
+            "fog": {
+                "enabled": false,
+                "color": "0xffffff",
+                "near": 1,
+                "far": 1000
+            }
+        },
+        "physics": {
+            "enabled": true,
+            "update_rate": 60,
+            "substeps": 1,
+            "debug_draw": false,
+            "allow_sleep": true,
+            "linear_sleep_threshold": 0.2,
+            "angular_sleep_threshold": 0.1,
+            "sleep_threshold": 0.1,
+            "max_velocity_iterations": 2,
+            "max_velocity_friction": 4,
+            "integration_parameters": {
+                "dt": 0.01666667,
+                "erp": 0.8,
+                "warmstart_coeff": 0.8,
+                "allowed_linear_error": 0.001
+            }
+        },
+        "rendering": {
+            "shadows": true,
+            "antialiasing": true,
+            "tone_mapping_exposure": 1.0,
+            "output_encoding": "sRGB_ENCODING"
+        },
+        "post_processing": {
+            "enabled": false,
+            "bloom": {
+                "enabled": false,
+                "strength": 0.5,
+                "threshold": 0.9,
+                "radius": 0.5
+            },
+            "ssao": {
+                "enabled": false,
+                "radius": 4,
+                "intensity": 1.5,
+                "blur": true
+            }
+        },
+        "default_camera": {
+            "position": {"x": 0, "y": 5, "z": 10},
+            "target": {"x": 0, "y": 0, "z": 0},
+            "fov": 75,
+            "near": 0.1,
+            "far": 1000,
+            "controls": {
+                "type": "ORBIT",
+                "enable_damping": true,
+                "damping_factor": 0.05,
+                "min_distance": 5,
+                "max_distance": 30,
+                "min_polar_angle": -60,
+                "max_polar_angle": 60,
+                "enable_zoom": true,
+                "enable_rotate": true,
+                "enable_pan": true
+            },
+            "shoulder_lights": {
+                "enabled": true,
+                "left": {
+                    "position": {
+                        "x": -3,
+                        "y": 2.5,
+                        "z": 40
+                    },
+                    "rotation": {
+                        "pitch": 190,
+                        "yaw": 0
+                    },
+                    "angle": 80,
+                    "max_distance": 0,
+                    "intensity": 0.5
+                },
+                "right": {
+                    "position": {
+                        "x": 3,
+                        "y": 2.5,
+                        "z": 40
+                    },
+                    "rotation": {
+                        "pitch": 190,
+                        "yaw": 0
+                    },
+                    "angle": 80,
+                    "max_distance": 0,
+                    "intensity": 0.5
+                }
+            },
+            "ui_distance": 25
+        }
+    }
+} 
