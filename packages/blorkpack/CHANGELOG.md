@@ -1,3 +1,10 @@
+## [0.12.22](https://github.com/littlecarlito/threejs_site/compare/v0.12.21...v0.12.22) (2025-03-20)
+
+
+### Bug Fixes
+
+* status link path ([#123](https://github.com/littlecarlito/threejs_site/issues/123)) ([f255f57](https://github.com/littlecarlito/threejs_site/commit/f255f571151949f86c2794962b03c010e6f142bf))
+
 ## [0.12.20](https://github.com/littlecarlito/threejs_site/compare/v0.12.19...v0.12.20) (2025-03-20)
 
 
