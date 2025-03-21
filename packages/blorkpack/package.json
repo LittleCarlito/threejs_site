@@ -1,6 +1,6 @@
 {
   "name": "@littlecarlito/blorkpack",
-  "version": "0.12.20",
+  "version": "0.13.1",
   "description": "Asset management utilities for 3D scenes",
   "type": "module",
   "blorkType": "package",

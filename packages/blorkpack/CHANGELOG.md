@@ -1,3 +1,14 @@
+## [0.13.1] - 2025-03-21
+
+### Bug Fixes
+* fix: pnpm ref for semantic (#133)
+* fix: versioning need check (#132)
+* fix: adding semantic versioning (#131)
+* fix: pipeline view (#130)
+* fix: pipeline repairs (#128)
+* fix: repairing poor semantic bot (#127)
+* fix: outputting test artifacts (#126)
+
 ## [0.12.20](https://github.com/littlecarlito/threejs_site/compare/v0.12.19...v0.12.20) (2025-03-20)
 
 
